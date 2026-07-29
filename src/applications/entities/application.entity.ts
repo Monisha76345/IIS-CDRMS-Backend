@@ -1,5 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { BaseEntity } from '../../common/core/models/base.entity';
+import { BaseEntity } from '../../admin/common/core/models/base.entity';
 import {
   ApplicationStatus,
   OccupancyStatus,

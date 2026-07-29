@@ -7,7 +7,7 @@ import { loadEnvironment, requireEnv, requireEnvNumber, envOr } from './config/l
 import {
   AllExceptionsFilter,
   validationExceptionFactory,
-} from './common/filters/all-exceptions.filter';
+} from './admin/common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const envName = loadEnvironment();

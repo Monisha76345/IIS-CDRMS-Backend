@@ -10,11 +10,11 @@ import { Application } from './entities/application.entity';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
 import { ApplicationStatus, OccupancyStatus } from './enums/application.enums';
-import { SeriesGeneratorService } from '../series-generator/series-generator.service';
-import { UsersService } from '../users/users.service';
-import { UserType } from '../users/enums/user-types.enum';
-import { MasterZone } from '../masters/entities/master-zone.entity';
-import { User } from '../users/entities/user.entity';
+import { SeriesGeneratorService } from '../admin/series-generator/series-generator.service';
+import { UsersService } from '../admin/users/users.service';
+import { UserType } from '../admin/users/enums/user-types.enum';
+import { MasterZone } from '../admin/masters/entities/master-zone.entity';
+import { User } from '../admin/users/entities/user.entity';
 
 @Injectable()
 export class ApplicationsService {
@@ -136,18 +136,46 @@ export class ApplicationsService {
     userId: string,
     as: 'zc' | 'engineer' | 'cao',
   ): Promise<Application[]> {
-    if (as === 'cao') {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const roleStr = String(user.userType || '').toLowerCase();
+    const isSuperAdmin =
+      roleStr.includes('super_admin') || user.userType === UserType.SUPER_ADMIN;
+
+    if (isSuperAdmin) {
+      // Super Admin: sees ALL applications across all zones (no zone selection needed)
       return this.applicationRepo.find({
-        where: { assignedCaoUserId: userId },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    if (as === 'cao' || roleStr.includes('cao')) {
+      // Mandatory zone mapping for CAO: show applications belonging to CAO's assigned zone
+      const caoZone = await this.resolveUserZone(userId);
+      return this.applicationRepo.find({
+        where: [
+          { zoneId: caoZone.zoneId },
+          { assignedCaoUserId: userId },
+        ],
         order: { engineerSubmittedAt: 'DESC', createdAt: 'DESC' },
       });
     }
-    const where =
-      as === 'zc'
-        ? { createdByZcUserId: userId }
-        : { assignedEngineerUserId: userId };
+
+    if (as === 'engineer' || roleStr.includes('engineer')) {
+      return this.applicationRepo.find({
+        where: { assignedEngineerUserId: userId },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    // ZC role: mandatory zone mapping for ZC
+    const zcZone = await this.resolveUserZone(userId);
     return this.applicationRepo.find({
-      where,
+      where: [
+        { createdByZcUserId: userId },
+        { zoneId: zcZone.zoneId },
+      ],
       order: { createdAt: 'DESC' },
     });
   }

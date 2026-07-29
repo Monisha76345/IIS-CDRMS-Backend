@@ -16,12 +16,12 @@ import {
   CaoReturnApplicationDto,
   CaoReviewApplicationDto,
 } from './dto/cao-review.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
 import {
   CurrentUser,
   type JwtRequestUser,
-} from '../common/decorators/current-user.decorator';
-import { ParseAnyUuidPipe } from '../common/pipes/parse-any-uuid.pipe';
+} from '../admin/common/decorators/current-user.decorator';
+import { ParseAnyUuidPipe } from '../admin/common/pipes/parse-any-uuid.pipe';
 
 @Controller('applications')
 @UseGuards(JwtAuthGuard)

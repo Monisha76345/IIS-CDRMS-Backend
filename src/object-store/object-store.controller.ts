@@ -19,7 +19,7 @@ import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import * as path from 'path';
 import { Readable } from 'stream';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
 import { DocumentQueryDto, UploadDocumentDto } from './dto/upload-document.dto';
 import { BufferedFile } from './interfaces/buffered-file.interface';
 import { DocumentUploaderService } from './services/document-uploader.service';

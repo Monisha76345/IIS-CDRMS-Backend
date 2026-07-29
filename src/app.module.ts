@@ -5,13 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { AllExceptionsFilter } from './admin/common/filters/all-exceptions.filter';
 import { loadEnvironment } from './config/load-env';
-import { SeriesGeneratorModule } from './series-generator/series-generator.module';
-import { UsersModule } from './users/users.module';
-import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 import { ObjectStoreModule } from './object-store/object-store.module';
-import { MastersModule } from './masters/masters.module';
 import { ApplicationsModule } from './applications/applications.module';
 
 loadEnvironment();
@@ -51,11 +48,8 @@ loadEnvironment();
         };
       },
     }),
-    SeriesGeneratorModule,
-    UsersModule,
-    AuthModule,
+    AdminModule,
     ObjectStoreModule,
-    MastersModule,
     ApplicationsModule,
   ],
   controllers: [AppController],
