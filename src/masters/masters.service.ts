@@ -20,6 +20,11 @@ import { SystemParameter } from './entities/system-parameter.entity';
 import { District } from './entities/district.entity';
 import { Taluk } from './entities/taluk.entity';
 import { Village } from './entities/village.entity';
+import { MasterCountry } from './entities/master-country.entity';
+import { MasterState } from './entities/master-state.entity';
+import { MasterDistrict } from './entities/master-district.entity';
+import { MasterTaluq } from './entities/master-taluq.entity';
+import { MasterZone } from './entities/master-zone.entity';
 import { MasterStatus } from './enums/master-status.enum';
 import { AttributeMasterType } from './enums/attribute-master-type.enum';
 import {
@@ -51,10 +56,57 @@ export class MastersService {
     private readonly talukRepo: Repository<Taluk>,
     @InjectRepository(Village)
     private readonly villageRepo: Repository<Village>,
+    @InjectRepository(MasterCountry)
+    private readonly masterCountryRepo: Repository<MasterCountry>,
+    @InjectRepository(MasterState)
+    private readonly masterStateRepo: Repository<MasterState>,
+    @InjectRepository(MasterDistrict)
+    private readonly masterDistrictRepo: Repository<MasterDistrict>,
+    @InjectRepository(MasterTaluq)
+    private readonly masterTaluqRepo: Repository<MasterTaluq>,
+    @InjectRepository(MasterZone)
+    private readonly masterZoneRepo: Repository<MasterZone>,
   ) {}
 
   private rethrow(error: unknown, fallback: string): never {
     rethrowServiceError(error, fallback, this.logger);
+  }
+
+  // ── CPMS-style geo masters (master_*) ──────────────────────
+
+  findCountries() {
+    return this.masterCountryRepo.find({
+      where: { activeYn: 1 },
+      order: { name: 'ASC' },
+    });
+  }
+
+  findStates(countryId?: number) {
+    return this.masterStateRepo.find({
+      where: countryId ? { countryId, activeYn: 1 } : { activeYn: 1 },
+      order: { name: 'ASC' },
+    });
+  }
+
+  findMasterDistrictsByState(stateId: number) {
+    return this.masterDistrictRepo.find({
+      where: { stateId, activeYn: 1 },
+      order: { name: 'ASC' },
+    });
+  }
+
+  findMasterTaluqsByDistrict(districtId: number) {
+    return this.masterTaluqRepo.find({
+      where: { districtId, activeYn: 1 },
+      order: { name: 'ASC' },
+    });
+  }
+
+  findActiveZones() {
+    return this.masterZoneRepo.find({
+      where: { isActive: 1 },
+      order: { displayOrder: 'ASC' },
+    });
   }
 
   // ── Geo locations ──────────────────────────────────────────

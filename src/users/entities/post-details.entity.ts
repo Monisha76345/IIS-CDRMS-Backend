@@ -45,4 +45,12 @@ export class PostDetails extends BaseEntity {
 
   @Column({ nullable: true })
   aliasName: string;
+
+  /** FK → master_zones.id (CPMS-style zone for ZC / engineer scoping) */
+  @Column({ type: 'int', nullable: true })
+  zoneId: number | null;
+
+  /** Denormalized master_zones.zone_code e.g. SOUTH */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  zoneCode: string | null;
 }

@@ -209,6 +209,8 @@ export class UsersController {
       email?: string;
       phoneNumber?: string;
       aliasName?: string;
+      zoneId?: number | null;
+      zoneCode?: string | null;
     },
   ) {
     return this.usersService.createPost(dto);

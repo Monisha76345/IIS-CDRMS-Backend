@@ -74,6 +74,9 @@ export class UsersService {
       .leftJoinAndSelect('m.post', 'post')
       .leftJoinAndSelect('post.role', 'role')
       .leftJoinAndSelect('m.person', 'person')
+      .where('m.status = :status', { status: MappingStatus.ACTIVE })
+      .andWhere('m.startDate <= CURDATE()')
+      .andWhere('(m.endDate IS NULL OR m.endDate >= CURDATE())')
       .orderBy('m.id', 'DESC')
       .skip(skip)
       .take(take);
@@ -721,6 +724,14 @@ export class UsersService {
       if (dto.locationId !== undefined) {
         post.locationId = dto.locationId == null ? null : Number(dto.locationId);
       }
+      if (dto.zoneId !== undefined) {
+        post.zoneId = dto.zoneId == null ? null : Number(dto.zoneId);
+      }
+      if (dto.zoneCode !== undefined) {
+        post.zoneCode = dto.zoneCode
+          ? String(dto.zoneCode).trim().toUpperCase()
+          : null;
+      }
 
       if (dto.roleId != null) {
         const roleId = Number(dto.roleId);
@@ -764,6 +775,112 @@ export class UsersService {
     }
 
     await this.postDetailsRepository.remove(post);
+  }
+
+  /**
+   * Active post↔person mappings for engineer seats in a master zone,
+   * enriched with the login User.id for assignment APIs.
+   */
+  async findActiveEngineerMappingsByZone(zoneId: number): Promise<
+    Array<
+      PostPersonMapping & {
+        userId?: string;
+        userEmail?: string | null;
+      }
+    >
+  > {
+    const mappings = await this.mappingRepository
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.post', 'post')
+      .leftJoinAndSelect('post.role', 'role')
+      .leftJoinAndSelect('m.person', 'person')
+      .where('m.status = :status', { status: MappingStatus.ACTIVE })
+      .andWhere('m.startDate <= CURDATE()')
+      .andWhere('(m.endDate IS NULL OR m.endDate >= CURDATE())')
+      .andWhere('post.zoneId = :zoneId', { zoneId })
+      .andWhere(
+        `(LOWER(COALESCE(role.code, '')) = :eng OR LOWER(COALESCE(role.name, '')) = :eng
+          OR LOWER(COALESCE(post.roleName, '')) = :eng)`,
+        { eng: 'engineer' },
+      )
+      .orderBy('person.lastName', 'ASC')
+      .getMany();
+
+    const enriched: Array<
+      PostPersonMapping & { userId?: string; userEmail?: string | null }
+    > = [];
+    for (const m of mappings) {
+      const loginId = m.person?.personUniqueId;
+      const user = loginId
+        ? await this.userRepository.findOne({ where: { loginId } })
+        : null;
+      if (!user || user.userType !== UserType.ENGINEER) {
+        continue;
+      }
+      enriched.push({
+        ...m,
+        userId: user.id,
+        userEmail: user.email,
+      });
+    }
+    return enriched;
+  }
+
+  /**
+   * Active CAO seat mappings in a zone (userType must be cao).
+   */
+  async findActiveCaoMappingsByZone(zoneId: number): Promise<
+    Array<
+      PostPersonMapping & {
+        userId?: string;
+        userEmail?: string | null;
+        displayName?: string;
+      }
+    >
+  > {
+    const mappings = await this.mappingRepository
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.post', 'post')
+      .leftJoinAndSelect('post.role', 'role')
+      .leftJoinAndSelect('m.person', 'person')
+      .where('m.status = :status', { status: MappingStatus.ACTIVE })
+      .andWhere('m.startDate <= CURDATE()')
+      .andWhere('(m.endDate IS NULL OR m.endDate >= CURDATE())')
+      .andWhere('post.zoneId = :zoneId', { zoneId })
+      .andWhere(
+        `(LOWER(COALESCE(role.code, '')) = :cao OR LOWER(COALESCE(role.name, '')) = :cao
+          OR LOWER(COALESCE(post.roleName, '')) = :cao)`,
+        { cao: 'cao' },
+      )
+      .orderBy('person.lastName', 'ASC')
+      .getMany();
+
+    const enriched: Array<
+      PostPersonMapping & {
+        userId?: string;
+        userEmail?: string | null;
+        displayName?: string;
+      }
+    > = [];
+    for (const m of mappings) {
+      const loginId = m.person?.personUniqueId;
+      const user = loginId
+        ? await this.userRepository.findOne({ where: { loginId } })
+        : null;
+      if (!user || user.userType !== UserType.CAO) {
+        continue;
+      }
+      const displayName = m.person
+        ? `${m.person.firstName || ''} ${m.person.lastName || ''}`.trim()
+        : user.name || user.loginId || user.email || user.id;
+      enriched.push({
+        ...m,
+        userId: user.id,
+        userEmail: user.email,
+        displayName,
+      });
+    }
+    return enriched;
   }
 
   async findAll(

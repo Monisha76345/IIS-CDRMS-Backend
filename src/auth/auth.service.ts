@@ -123,6 +123,8 @@ export class AuthService {
             ofcAddress: post.ofcAddress,
             locationId: post.locationId,
             location: post.location,
+            zoneId: post.zoneId,
+            zoneCode: post.zoneCode,
           }
         : undefined,
       officer: person || undefined,

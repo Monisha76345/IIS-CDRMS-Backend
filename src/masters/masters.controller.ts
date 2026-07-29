@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -29,6 +30,40 @@ import {
 @UseGuards(JwtAuthGuard)
 export class MastersController {
   constructor(private readonly mastersService: MastersService) {}
+
+  // ── CPMS geo masters (master_country / state / district / taluq / zones) ─
+
+  @Get('countries')
+  countries() {
+    return this.mastersService.findCountries();
+  }
+
+  @Get('states')
+  states(@Query('countryId') countryId?: string) {
+    return this.mastersService.findStates(
+      countryId ? parseInt(countryId, 10) : undefined,
+    );
+  }
+
+  @Get('taluqs')
+  taluqs(@Query('districtId', ParseIntPipe) districtId: number) {
+    return this.mastersService.findMasterTaluqsByDistrict(districtId);
+  }
+
+  @Get('zones/active')
+  zones() {
+    return this.mastersService.findActiveZones();
+  }
+
+  @Get('states/:stateId/districts')
+  districtsByState(@Param('stateId', ParseIntPipe) stateId: number) {
+    return this.mastersService.findMasterDistrictsByState(stateId);
+  }
+
+  @Get('districts/:districtId/taluqs')
+  taluqsByDistrict(@Param('districtId', ParseIntPipe) districtId: number) {
+    return this.mastersService.findMasterTaluqsByDistrict(districtId);
+  }
 
   // ── Geo locations ──────────────────────────────────────────
 
@@ -143,13 +178,20 @@ export class MastersController {
 
   // ── Districts / Taluks / Villages ──────────────────────────
 
+  // CPMS: ?stateId=13 → master_district; else admin UUID districts list
   @Get('districts')
   findDistricts(
+    @Query('stateId') stateId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: MasterStatus,
   ) {
+    if (stateId != null && String(stateId).trim() !== '') {
+      return this.mastersService.findMasterDistrictsByState(
+        parseInt(stateId, 10),
+      );
+    }
     return this.mastersService.findDistricts(
       {
         page: page ? Number(page) : undefined,

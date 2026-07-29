@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ObjectStoreModule } from './object-store/object-store.module';
 import { MastersModule } from './masters/masters.module';
+import { ApplicationsModule } from './applications/applications.module';
 
 loadEnvironment();
 
@@ -55,6 +56,7 @@ loadEnvironment();
     AuthModule,
     ObjectStoreModule,
     MastersModule,
+    ApplicationsModule,
   ],
   controllers: [AppController],
   providers: [
