@@ -7,31 +7,82 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   ValidateNested,
-  IsNotEmpty,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OccupancyStatus } from '../enums/application.enums';
 
-/** Partial schedule photos — only provided sides are updated. */
+/** Partial schedule photos — only provided sides are updated. Empty string clears. */
 class SchedulePhotosDraftDto {
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   N?: string;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   S?: string;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   E?: string;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  W?: string;
+}
+
+class ScheduleRoadFlagsDraftDto {
+  @IsOptional()
+  @IsBoolean()
+  N?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  S?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  E?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  W?: boolean;
+}
+
+class EngineerScheduleNotesDraftDto {
+  @IsOptional()
+  @IsString()
+  N?: string;
+
+  @IsOptional()
+  @IsString()
+  S?: string;
+
+  @IsOptional()
+  @IsString()
+  E?: string;
+
+  @IsOptional()
+  @IsString()
+  W?: string;
+}
+
+/** Engineer N/S/E/W dimensions — separate from ZC siteDimension. */
+class EngineerDimensionsDraftDto {
+  @IsOptional()
+  @IsNumberString()
+  N?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  S?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  E?: string;
+
+  @IsOptional()
+  @IsNumberString()
   W?: string;
 }
 
@@ -80,6 +131,12 @@ export class EngineerDraftApplicationDto {
   @IsNumberString()
   dimWest?: string;
 
+  /** Preferred: engineer N/S/E/W dims (does not touch ZC siteDimension). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EngineerDimensionsDraftDto)
+  engineerDimensions?: EngineerDimensionsDraftDto;
+
   @IsOptional()
   @IsNumberString()
   totalSiteArea?: string;
@@ -100,6 +157,7 @@ export class EngineerDraftApplicationDto {
   @Type(() => SchedulePhotosDraftDto)
   schedulePhotoUrls?: SchedulePhotosDraftDto;
 
+  /** @deprecated Engineer no longer overwrites ZC schedules — use engineerScheduleNotes. */
   @IsOptional()
   @IsString()
   scheduleNorth?: string;
@@ -115,6 +173,16 @@ export class EngineerDraftApplicationDto {
   @IsOptional()
   @IsString()
   scheduleEast?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EngineerScheduleNotesDraftDto)
+  engineerScheduleNotes?: EngineerScheduleNotesDraftDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ScheduleRoadFlagsDraftDto)
+  scheduleRoadFlags?: ScheduleRoadFlagsDraftDto;
 
   @IsOptional()
   @IsString()

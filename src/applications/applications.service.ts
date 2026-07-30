@@ -37,6 +37,46 @@ export class ApplicationsService {
     return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
 
+  /**
+   * Write engineer N/S/E/W into engineerDimensions (JSON) and keep dim* columns in sync.
+   * Never touches ZC siteDimension.
+   */
+  private applyEngineerDimensions(
+    app: Application,
+    dims: Partial<Record<'N' | 'S' | 'E' | 'W', string | undefined>>,
+    opts?: { requireAll?: boolean },
+  ) {
+    const prev =
+      app.engineerDimensions && typeof app.engineerDimensions === 'object'
+        ? { ...app.engineerDimensions }
+        : ({} as Record<string, string>);
+
+    for (const side of ['N', 'S', 'E', 'W'] as const) {
+      const raw = dims[side];
+      if (raw === undefined) continue;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new BadRequestException('Site dimensions must be positive numbers');
+      }
+      prev[side] = String(n);
+    }
+
+    if (opts?.requireAll) {
+      for (const side of ['N', 'S', 'E', 'W'] as const) {
+        const n = Number(prev[side]);
+        if (!Number.isFinite(n) || n <= 0) {
+          throw new BadRequestException('Site dimensions must be positive numbers');
+        }
+      }
+    }
+
+    app.engineerDimensions = prev;
+    if (prev.N != null) app.dimNorth = prev.N;
+    if (prev.S != null) app.dimSouth = prev.S;
+    if (prev.E != null) app.dimEast = prev.E;
+    if (prev.W != null) app.dimWest = prev.W;
+  }
+
   private async formatActor(userId: string, roleLabel: string): Promise<string> {
     const user = await this.usersService.findById(userId);
     if (!user) return roleLabel;
@@ -231,34 +271,88 @@ export class ApplicationsService {
     const isSuperAdmin =
       roleStr.includes('super_admin') || user.userType === UserType.SUPER_ADMIN;
 
+    /**
+     * List views must NOT select heavy JSON/text blobs (history, photo URLs, etc.).
+     * Loading full rows + ORDER BY caused MySQL ER_OUT_OF_SORTMEMORY (1038).
+     */
+    const listSelect = {
+      id: true,
+      applicationNumber: true,
+      siteNo: true,
+      addressArea: true,
+      addressBlock: true,
+      addressPincode: true,
+      siteDimensionType: true,
+      siteDimension: true,
+      scheduleNorth: true,
+      scheduleSouth: true,
+      scheduleWest: true,
+      scheduleEast: true,
+      zoneId: true,
+      zoneCode: true,
+      assignedEngineerUserId: true,
+      assignedEngineerName: true,
+      createdByZcUserId: true,
+      createdByZcName: true,
+      assignedCaoUserId: true,
+      assignedCaoName: true,
+      status: true,
+      caoRemarks: true,
+      caoReviewedAt: true,
+      compass: true,
+      latitude: true,
+      longitude: true,
+      occupancy: true,
+      dimNorth: true,
+      dimSouth: true,
+      dimEast: true,
+      dimWest: true,
+      totalSiteArea: true,
+      selfieUrl: true,
+      engineerSubmittedAt: true,
+      engineerDimensions: true,
+      createdAt: true,
+      updatedAt: true,
+      createdBy: true,
+      updatedBy: true,
+      // Explicitly omitted: history, photoUrls, schedulePhotoUrls, videoUrl,
+      // engineerScheduleNotes, scheduleRoadFlags, engineerSiteDetails,
+      // engineerComments, occupancyReason, siteDimensionComment
+    } as const;
+
     let apps: Application[];
 
     if (isSuperAdmin) {
-      // Super Admin: sees ALL applications across all zones (no zone selection needed)
       apps = await this.applicationRepo.find({
+        select: listSelect as any,
         order: { createdAt: 'DESC' },
+        take: 1000,
       });
     } else if (as === 'cao' || roleStr.includes('cao')) {
-      // Mandatory zone mapping for CAO: show applications belonging to CAO's assigned zone
       const caoZone = await this.resolveUserZone(userId);
       apps = await this.applicationRepo.find({
+        select: listSelect as any,
         where: [
           { zoneId: caoZone.zoneId },
           { assignedCaoUserId: userId },
         ],
         order: { engineerSubmittedAt: 'DESC', createdAt: 'DESC' },
+        take: 1000,
       });
     } else if (as === 'engineer' || roleStr.includes('engineer')) {
       apps = await this.applicationRepo.find({
+        select: listSelect as any,
         where: { assignedEngineerUserId: userId },
         order: { createdAt: 'DESC' },
+        take: 1000,
       });
     } else {
-      // ZC (and similar): show all applications in the mapped zone
       const zcZone = await this.resolveUserZone(userId);
       apps = await this.applicationRepo.find({
+        select: listSelect as any,
         where: { zoneId: zcZone.zoneId },
         order: { createdAt: 'DESC' },
+        take: 1000,
       });
     }
 
@@ -456,38 +550,32 @@ export class ApplicationsService {
       app.occupancyReason = dto.occupancyReason.trim() || null;
     }
 
-    if (dto.dimNorth !== undefined) {
-      const n = Number(dto.dimNorth);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new BadRequestException('Site dimensions must be positive numbers');
-      }
-      app.dimNorth = String(n);
-    }
-    if (dto.dimSouth !== undefined) {
-      const n = Number(dto.dimSouth);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new BadRequestException('Site dimensions must be positive numbers');
-      }
-      app.dimSouth = String(n);
-    }
-    if (dto.dimEast !== undefined) {
-      const n = Number(dto.dimEast);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new BadRequestException('Site dimensions must be positive numbers');
-      }
-      app.dimEast = String(n);
-    }
-    if (dto.dimWest !== undefined) {
-      const n = Number(dto.dimWest);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new BadRequestException('Site dimensions must be positive numbers');
-      }
-      app.dimWest = String(n);
+    if (dto.engineerDimensions !== undefined) {
+      this.applyEngineerDimensions(app, {
+        N: dto.engineerDimensions.N,
+        S: dto.engineerDimensions.S,
+        E: dto.engineerDimensions.E,
+        W: dto.engineerDimensions.W,
+      });
+    } else if (
+      dto.dimNorth !== undefined ||
+      dto.dimSouth !== undefined ||
+      dto.dimEast !== undefined ||
+      dto.dimWest !== undefined
+    ) {
+      // Legacy flat fields — still write into engineerDimensions + dim*.
+      this.applyEngineerDimensions(app, {
+        N: dto.dimNorth,
+        S: dto.dimSouth,
+        E: dto.dimEast,
+        W: dto.dimWest,
+      });
     }
 
     if (dto.totalSiteArea !== undefined && dto.totalSiteArea !== '') {
       app.totalSiteArea = dto.totalSiteArea;
     } else if (
+      dto.engineerDimensions !== undefined ||
       dto.dimNorth !== undefined ||
       dto.dimSouth !== undefined ||
       dto.dimEast !== undefined ||
@@ -517,21 +605,35 @@ export class ApplicationsService {
           : ({} as Record<string, string>);
       for (const side of ['N', 'S', 'E', 'W'] as const) {
         const v = dto.schedulePhotoUrls[side];
-        if (v !== undefined && v.trim()) prev[side] = v.trim();
+        if (v === undefined) continue;
+        const trimmed = v.trim();
+        if (trimmed) prev[side] = trimmed;
+        else delete prev[side];
       }
-      app.schedulePhotoUrls = prev;
+      app.schedulePhotoUrls = Object.keys(prev).length ? prev : null;
     }
-    if (dto.scheduleNorth !== undefined) {
-      app.scheduleNorth = dto.scheduleNorth.trim() || null;
+    // ZC scheduleNorth… are intentionally not overwritten by engineer draft.
+    if (dto.engineerScheduleNotes !== undefined) {
+      const prev =
+        app.engineerScheduleNotes && typeof app.engineerScheduleNotes === 'object'
+          ? { ...app.engineerScheduleNotes }
+          : ({} as Record<string, string>);
+      for (const side of ['N', 'S', 'E', 'W'] as const) {
+        const v = dto.engineerScheduleNotes[side];
+        if (v !== undefined) prev[side] = v.trim();
+      }
+      app.engineerScheduleNotes = prev;
     }
-    if (dto.scheduleSouth !== undefined) {
-      app.scheduleSouth = dto.scheduleSouth.trim() || null;
-    }
-    if (dto.scheduleWest !== undefined) {
-      app.scheduleWest = dto.scheduleWest.trim() || null;
-    }
-    if (dto.scheduleEast !== undefined) {
-      app.scheduleEast = dto.scheduleEast.trim() || null;
+    if (dto.scheduleRoadFlags !== undefined) {
+      const prev =
+        app.scheduleRoadFlags && typeof app.scheduleRoadFlags === 'object'
+          ? { ...app.scheduleRoadFlags }
+          : ({ N: false, S: false, E: false, W: false } as Record<string, boolean>);
+      for (const side of ['N', 'S', 'E', 'W'] as const) {
+        const v = dto.scheduleRoadFlags[side];
+        if (v !== undefined) prev[side] = Boolean(v);
+      }
+      app.scheduleRoadFlags = prev;
     }
     if (dto.videoUrl !== undefined) {
       app.videoUrl = dto.videoUrl.trim() || null;
@@ -563,13 +665,25 @@ export class ApplicationsService {
       throw new BadRequestException('Application was rejected');
     }
 
-    const n = Number(dto.dimNorth);
-    const s = Number(dto.dimSouth);
-    const e = Number(dto.dimEast);
-    const w = Number(dto.dimWest);
-    if ([n, s, e, w].some((v) => !Number.isFinite(v) || v <= 0)) {
-      throw new BadRequestException('Site dimensions must be positive numbers');
-    }
+    const dims = dto.engineerDimensions
+      ? {
+          N: dto.engineerDimensions.N,
+          S: dto.engineerDimensions.S,
+          E: dto.engineerDimensions.E,
+          W: dto.engineerDimensions.W,
+        }
+      : {
+          N: dto.dimNorth,
+          S: dto.dimSouth,
+          E: dto.dimEast,
+          W: dto.dimWest,
+        };
+    this.applyEngineerDimensions(app, dims, { requireAll: true });
+
+    const n = Number(app.dimNorth);
+    const s = Number(app.dimSouth);
+    const e = Number(app.dimEast);
+    const w = Number(app.dimWest);
 
     const avgNS = (n + s) / 2;
     const avgEW = (e + w) / 2;
@@ -597,33 +711,33 @@ export class ApplicationsService {
       Boolean(app.engineerSubmittedAt) ||
       statusBefore === ApplicationStatus.RETURNED;
 
-    app.engineerSiteDetails = dto.engineerSiteDetails.trim();
+    app.engineerSiteDetails = dto.engineerSiteDetails?.trim() || null;
     app.compass = dto.compass.trim();
     app.latitude = dto.latitude;
     app.longitude = dto.longitude;
     app.occupancy = dto.occupancy;
     app.occupancyReason = dto.occupancyReason?.trim() || null;
-    app.dimNorth = String(n);
-    app.dimSouth = String(s);
-    app.dimEast = String(e);
-    app.dimWest = String(w);
     app.totalSiteArea = total;
     app.selfieUrl = dto.selfieUrl;
     app.photoUrls = dto.photoUrls?.length ? dto.photoUrls : [];
     app.schedulePhotoUrls = dto.schedulePhotoUrls
       ? { ...dto.schedulePhotoUrls }
       : null;
-    if (dto.scheduleNorth !== undefined) {
-      app.scheduleNorth = dto.scheduleNorth.trim() || null;
+    if (dto.engineerScheduleNotes) {
+      app.engineerScheduleNotes = {
+        N: dto.engineerScheduleNotes.N?.trim() || '',
+        S: dto.engineerScheduleNotes.S?.trim() || '',
+        E: dto.engineerScheduleNotes.E?.trim() || '',
+        W: dto.engineerScheduleNotes.W?.trim() || '',
+      };
     }
-    if (dto.scheduleSouth !== undefined) {
-      app.scheduleSouth = dto.scheduleSouth.trim() || null;
-    }
-    if (dto.scheduleWest !== undefined) {
-      app.scheduleWest = dto.scheduleWest.trim() || null;
-    }
-    if (dto.scheduleEast !== undefined) {
-      app.scheduleEast = dto.scheduleEast.trim() || null;
+    if (dto.scheduleRoadFlags) {
+      app.scheduleRoadFlags = {
+        N: Boolean(dto.scheduleRoadFlags.N),
+        S: Boolean(dto.scheduleRoadFlags.S),
+        E: Boolean(dto.scheduleRoadFlags.E),
+        W: Boolean(dto.scheduleRoadFlags.W),
+      };
     }
     app.videoUrl = dto.videoUrl;
     app.engineerComments = dto.engineerComments.trim();

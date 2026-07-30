@@ -119,15 +119,25 @@ export class S3ClientService implements OnModuleInit {
   }
 
   async upload(file: BufferedFile, key: string): Promise<string> {
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ContentLength: file.size,
-      }),
-    );
+    try {
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ContentLength: file.size,
+        }),
+      );
+    } catch (error: any) {
+      const code = error?.code || error?.name || '';
+      if (code === 'ECONNREFUSED' || String(error?.message || '').includes('ECONNREFUSED')) {
+        throw new Error(
+          'File storage (MinIO) is not running on port 9000. Start MinIO, then try again.',
+        );
+      }
+      throw error;
+    }
     return this.buildPublicUrl(key);
   }
 

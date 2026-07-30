@@ -39,7 +39,7 @@ export class Application extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   siteDimensionComment: string | null;
 
-  /** ZC schedule / surrounding notes per direction */
+  /** ZC schedule / surrounding notes per direction (read-only for engineer UI). */
   @Column({ type: 'text', nullable: true })
   scheduleNorth: string | null;
 
@@ -51,6 +51,17 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   scheduleEast: string | null;
+
+  /**
+   * Engineer-entered schedule notes per side (N/S/E/W).
+   * Separate from ZC scheduleNorth… so ZC values stay intact.
+   */
+  @Column({ type: 'json', nullable: true })
+  engineerScheduleNotes: Record<string, string> | null;
+
+  /** Per-side "Road?" checkbox — true when checked, false otherwise. */
+  @Column({ type: 'json', nullable: true })
+  scheduleRoadFlags: Record<string, boolean> | null;
 
   @Column({ type: 'int' })
   zoneId: number;
@@ -110,18 +121,30 @@ export class Application extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   occupancyReason: string | null;
 
+  /**
+   * Engineer-measured side lengths per direction (N/S/E/W).
+   * Separate from ZC `siteDimension` (e.g. "20*40") — same idea as engineerScheduleNotes.
+   */
+  @Column({ type: 'json', nullable: true })
+  engineerDimensions: Record<string, string> | null;
+
+  /** @deprecated Prefer engineerDimensions.N — kept in sync for existing readers. */
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   dimNorth: string | null;
 
+  /** @deprecated Prefer engineerDimensions.S */
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   dimSouth: string | null;
 
+  /** @deprecated Prefer engineerDimensions.E */
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   dimEast: string | null;
 
+  /** @deprecated Prefer engineerDimensions.W */
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   dimWest: string | null;
 
+  /** Engineer-computed plot area from N/S/E/W (not ZC siteDimension). */
   @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
   totalSiteArea: string | null;
 

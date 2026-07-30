@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Post,
@@ -88,6 +89,24 @@ export class ObjectStoreController {
       refType: query.refType,
       refId: query.refId,
     });
+  }
+
+  /** Return existing uploaded URL for a ref without touching MinIO. */
+  @Get('by-ref')
+  async getByRef(@Query('refId') refId: string) {
+    if (!refId?.trim()) throw new BadRequestException('refId required');
+    const docs = await this.documentUploaderService.findByRefId(refId.trim());
+    const latest = docs[0];
+    if (!latest?.imageUrl) {
+      throw new NotFoundException('No document for this ref');
+    }
+    return {
+      id: latest.id,
+      image_url: latest.imageUrl,
+      key: latest.fileKey,
+      fileName: latest.filename,
+      message: 'Existing upload',
+    };
   }
 
   @Get('documents')

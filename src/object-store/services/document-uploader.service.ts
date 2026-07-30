@@ -108,6 +108,14 @@ export class DocumentUploaderService {
     return this.documentRepository.findOne({ where: { imageUrl: url } });
   }
 
+  async findByRefId(refId: string): Promise<DocumentMetaInfoEntity[]> {
+    if (!refId) return [];
+    return this.documentRepository.find({
+      where: { refId: String(refId) },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async downloadFile(fileKey: string) {
     return this.s3ClientService.downloadFile(fileKey);
   }
