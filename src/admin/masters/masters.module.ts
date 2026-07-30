@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GeoLocation } from './entities/geo-location.entity';
 import { AttributeMaster } from './entities/attribute-master.entity';
-import { ApplicationStatusEntity } from './entities/application-status.entity';
 import { SystemParameter } from './entities/system-parameter.entity';
 import { District } from './entities/district.entity';
 import { Taluk } from './entities/taluk.entity';
@@ -20,7 +19,6 @@ import { MastersController } from './masters.controller';
     TypeOrmModule.forFeature([
       GeoLocation,
       AttributeMaster,
-      ApplicationStatusEntity,
       SystemParameter,
       District,
       Taluk,

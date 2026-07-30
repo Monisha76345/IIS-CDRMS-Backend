@@ -23,17 +23,6 @@ npm run start:dev
 API base: `http://localhost:3700/api`  
 Health: `http://localhost:3700/api/health`
 
-## Seed admin
-
-```bash
-# Start the API once so TypeORM can create tables (DB_SYNCHRONIZE=true)
-npm run start:dev
-# In another terminal:
-npm run seed
-```
-
-Admin: `admin@cdrms.local` / `CDRMS00001` / `Okay@123`
-
 ## Modules (ported from CPMS pattern)
 
 | Module | Routes prefix | Notes |

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -99,5 +100,23 @@ export class AuthController {
   async getProfile(@Req() request: Request) {
     const userId = request['user'].sub;
     return this.authService.getEnrichedProfile(userId);
+  }
+
+  @Post('profile/avatar')
+  @UseGuards(JwtAuthGuard)
+  async updateAvatar(
+    @Req() request: Request,
+    @Body() body: { profilePhoto?: string; avatarData?: string },
+  ) {
+    const userId = request['user'].sub;
+    const photo = body.profilePhoto || body.avatarData || null;
+    return this.authService.usersService.updateProfilePhoto(userId, photo);
+  }
+
+  @Delete('profile/avatar')
+  @UseGuards(JwtAuthGuard)
+  async deleteAvatar(@Req() request: Request) {
+    const userId = request['user'].sub;
+    return this.authService.usersService.deleteProfilePhoto(userId);
   }
 }

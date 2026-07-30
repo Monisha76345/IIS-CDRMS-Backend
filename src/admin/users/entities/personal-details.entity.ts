@@ -48,6 +48,9 @@ export class PersonalDetails extends BaseEntity {
   @Column({ nullable: true })
   departmentId: string;
 
+  @Column({ type: 'longtext', nullable: true })
+  profilePhoto: string | null;
+
   @Column({
     type: 'enum',
     enum: PersonStatus,

@@ -499,6 +499,72 @@ export class UsersService {
     return this.userRepository.findOne({ where: { id } });
   }
 
+  /** Uploaded photo only — ignores empty values and stock /avatars/* paths. */
+  pickUploadedProfilePhoto(
+    ...candidates: Array<string | null | undefined>
+  ): string | null {
+    for (const raw of candidates) {
+      const photo = typeof raw === 'string' ? raw.trim() : '';
+      if (!photo) continue;
+      if (photo.startsWith('/avatars/')) continue;
+      return photo;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve loginId + uploaded profile photo for many users (for application lists).
+   */
+  async resolveEngineerDisplayByIds(
+    userIds: string[],
+  ): Promise<
+    Map<
+      string,
+      { loginId: string | null; profilePhoto: string | null; name: string | null }
+    >
+  > {
+    const unique = [
+      ...new Set(userIds.map((id) => String(id || '').trim()).filter(Boolean)),
+    ];
+    const out = new Map<
+      string,
+      { loginId: string | null; profilePhoto: string | null; name: string | null }
+    >();
+    if (!unique.length) return out;
+
+    const users = await this.userRepository.find({
+      where: { id: In(unique) },
+    });
+    const loginIds = users
+      .map((u) => u.loginId)
+      .filter((id): id is string => Boolean(id));
+
+    const people =
+      loginIds.length > 0
+        ? await this.personalDetailsRepository.find({
+            where: { personUniqueId: In(loginIds) },
+          })
+        : [];
+    const personByLogin = new Map(
+      people.map((p) => [p.personUniqueId, p] as const),
+    );
+
+    for (const user of users) {
+      const person = user.loginId
+        ? personByLogin.get(user.loginId)
+        : undefined;
+      out.set(user.id, {
+        loginId: user.loginId ?? null,
+        name: user.name ?? null,
+        profilePhoto: this.pickUploadedProfilePhoto(
+          (user as any).profilePhoto,
+          (person as any)?.profilePhoto,
+        ),
+      });
+    }
+    return out;
+  }
+
   async touchLastLoggedIn(userId: string): Promise<void> {
     await this.userRepository.update(
       { id: userId },
@@ -907,5 +973,46 @@ export class UsersService {
     }
 
     await this.userRepository.remove(user);
+  }
+
+  async updateProfilePhoto(userId: string, photoData: string | null) {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const normalized =
+      typeof photoData === 'string' ? photoData.trim() : photoData;
+    if (normalized && normalized.startsWith('/avatars/')) {
+      throw new BadRequestException(
+        'Stock placeholder avatars are not allowed. Upload your own photo.',
+      );
+    }
+    if (
+      normalized &&
+      !normalized.startsWith('data:image/') &&
+      !/^https?:\/\//i.test(normalized)
+    ) {
+      throw new BadRequestException(
+        'Profile photo must be an image data URL or http(s) URL.',
+      );
+    }
+
+    (user as any).profilePhoto = normalized;
+    await this.userRepository.save(user);
+
+    if (user.loginId) {
+      const person = await this.personalDetailsRepository.findOne({
+        where: { personUniqueId: user.loginId },
+      });
+      if (person) {
+        (person as any).profilePhoto = normalized;
+        await this.personalDetailsRepository.save(person);
+      }
+    }
+
+    return { success: true, profilePhoto: normalized };
+  }
+
+  async deleteProfilePhoto(userId: string) {
+    return this.updateProfilePhoto(userId, null);
   }
 }

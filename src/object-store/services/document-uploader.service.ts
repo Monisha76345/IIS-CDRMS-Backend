@@ -103,14 +103,45 @@ export class DocumentUploaderService {
     return doc;
   }
 
+  async findByUrl(url: string): Promise<DocumentMetaInfoEntity | null> {
+    if (!url) return null;
+    return this.documentRepository.findOne({ where: { imageUrl: url } });
+  }
+
   async downloadFile(fileKey: string) {
     return this.s3ClientService.downloadFile(fileKey);
   }
 
   async deleteDoc(documentId: number): Promise<{ message: string }> {
     const doc = await this.findById(documentId);
-    await this.s3ClientService.delete(doc.fileKey);
+    try {
+      await this.s3ClientService.delete(doc.fileKey);
+    } catch {}
     await this.documentRepository.remove(doc);
     return { message: 'Document deleted successfully' };
+  }
+
+  async deleteByUrl(url: string): Promise<{ message: string }> {
+    if (!url) return { message: 'No URL provided' };
+    const doc = await this.documentRepository.findOne({ where: { imageUrl: url } });
+    if (doc) {
+      try {
+        await this.s3ClientService.delete(doc.fileKey);
+      } catch {}
+      await this.documentRepository.remove(doc);
+    }
+    return { message: 'Document deleted successfully' };
+  }
+
+  async deleteByRef(refId: string): Promise<{ message: string }> {
+    if (!refId) return { message: 'No refId provided' };
+    const docs = await this.documentRepository.find({ where: { refId: String(refId) } });
+    for (const doc of docs) {
+      try {
+        await this.s3ClientService.delete(doc.fileKey);
+      } catch {}
+      await this.documentRepository.remove(doc);
+    }
+    return { message: 'Documents deleted successfully' };
   }
 }

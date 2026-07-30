@@ -16,7 +16,6 @@ import { MastersService } from './masters.service';
 import { MasterStatus } from './enums/master-status.enum';
 import { AttributeMasterType } from './enums/attribute-master-type.enum';
 import {
-  UpsertApplicationStatusDto,
   UpsertAttributeMasterDto,
   UpsertDistrictDto,
   UpsertGeoLocationDto,
@@ -147,18 +146,6 @@ export class MastersController {
     return this.mastersService.updateAttributeMaster(id, {
       status: dto.status,
     });
-  }
-
-  // ── Application statuses ───────────────────────────────────
-
-  @Get('application-statuses')
-  findApplicationStatuses() {
-    return this.mastersService.findApplicationStatuses();
-  }
-
-  @Put('application-statuses')
-  upsertApplicationStatus(@Body() dto: UpsertApplicationStatusDto) {
-    return this.mastersService.upsertApplicationStatus(dto);
   }
 
   // ── System parameters ──────────────────────────────────────

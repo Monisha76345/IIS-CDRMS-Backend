@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
@@ -41,7 +42,10 @@ async function bootstrap() {
     console.error(`[${envName}] Database auto-creation check failed: ${message}`);
   }
 
-  const app = await NestFactory.create(AppModule);
+  // Allow base64 profile photos (default Nest/Express limit is ~100kb).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useBodyParser('json', { limit: '8mb' });
+  app.useBodyParser('urlencoded', { limit: '8mb', extended: true });
 
   app.setGlobalPrefix('api');
 

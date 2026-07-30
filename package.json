@@ -12,10 +12,6 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
-    "seed:sql": "mysql -h127.0.0.1 -uroot -proot@123 cdrms < scripts/seed-super-admin.sql",
-    "seed:geo": "mysql -h127.0.0.1 -uroot -proot@123 cdrms < scripts/seed-geo-masters.sql",
-    "seed:zc": "mysql -h127.0.0.1 -uroot -proot@123 cdrms < scripts/seed-zc-engineer.sql",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -70,7 +66,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.7.3",
+    "typescript": "~5.8.3",
     "typescript-eslint": "^8.20.0"
   },
   "jest": {

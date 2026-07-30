@@ -1,10 +1,11 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { BaseEntity } from '../../admin/common/core/models/base.entity';
+import { BaseEntity } from '../../common/core/models/base.entity';
 import {
   ApplicationStatus,
   OccupancyStatus,
   SiteDimensionType,
 } from '../enums/application.enums';
+import type { ApplicationHistoryItem } from '../models/application-history-item.interface';
 
 @Entity('applications')
 export class Application extends BaseEntity {
@@ -27,8 +28,13 @@ export class Application extends BaseEntity {
   @Column({ length: 20 })
   addressPincode: string;
 
-  @Column({ type: 'enum', enum: SiteDimensionType })
-  siteDimensionType: SiteDimensionType;
+  /** Even / Odd site type (legacy rows may still say Regular). */
+  @Column({ type: 'varchar', length: 20 })
+  siteDimensionType: SiteDimensionType | string;
+
+  /** Selected plot size e.g. 20*40 or 20*40*50*40 */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  siteDimension: string | null;
 
   @Column({ type: 'text', nullable: true })
   siteDimensionComment: string | null;
@@ -137,4 +143,8 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'datetime', nullable: true })
   engineerSubmittedAt: Date | null;
+
+  /** Append-only workflow trail (create / submit / send-back / approve / reject). */
+  @Column({ type: 'json', nullable: true })
+  history: ApplicationHistoryItem[] | null;
 }

@@ -3,7 +3,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { BaseEntity } from '../../admin/common/core/models/base.entity';
+import { BaseEntity } from '../../common/core/models/base.entity';
 import { EntityType } from '../enums/entity-type.enum';
 import { ReferenceType } from '../enums/reference-type.enum';
 

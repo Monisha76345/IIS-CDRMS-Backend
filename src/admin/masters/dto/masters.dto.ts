@@ -8,7 +8,6 @@ import {
 } from 'class-validator';
 import { MasterStatus } from '../enums/master-status.enum';
 import { AttributeMasterType } from '../enums/attribute-master-type.enum';
-import { ApplicationStatusCode } from '../enums/application-status-code.enum';
 
 export class UpsertGeoLocationDto {
   @IsString()
@@ -39,20 +38,6 @@ export class UpsertAttributeMasterDto {
   @MinLength(1)
   @MaxLength(50)
   code: string;
-
-  @IsOptional()
-  @IsEnum(MasterStatus)
-  status?: MasterStatus;
-}
-
-export class UpsertApplicationStatusDto {
-  @IsEnum(ApplicationStatusCode)
-  code: ApplicationStatusCode;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
-  label: string;
 
   @IsOptional()
   @IsEnum(MasterStatus)

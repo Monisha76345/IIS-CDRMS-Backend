@@ -3,10 +3,11 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MastersModule } from './masters/masters.module';
 import { SeriesGeneratorModule } from './series-generator/series-generator.module';
+import { PublicModule } from './public/public.module';
 
 /**
- * Portable admin surface: auth, users (person/post/mapping), roles, masters, series IDs.
- * Import this single module in the host Nest app after TypeORM + Config are configured.
+ * Portable admin surface: auth, users (person/post/mapping), roles, masters, series IDs,
+ * and unauthenticated public common-data APIs.
  */
 @Module({
   imports: [
@@ -14,12 +15,14 @@ import { SeriesGeneratorModule } from './series-generator/series-generator.modul
     UsersModule,
     AuthModule,
     MastersModule,
+    PublicModule,
   ],
   exports: [
     SeriesGeneratorModule,
     UsersModule,
     AuthModule,
     MastersModule,
+    PublicModule,
   ],
 })
 export class AdminModule {}

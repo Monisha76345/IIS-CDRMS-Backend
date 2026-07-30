@@ -138,6 +138,48 @@ export class ObjectStoreController {
     (fileStream.Body as Readable).pipe(res);
   }
 
+  @Get('view-by-url')
+  async viewByUrl(@Query('url') url: string, @Res() res: Response) {
+    if (!url) throw new BadRequestException('URL required');
+    const doc = await this.documentUploaderService.findByUrl(url);
+    if (!doc) {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return res.redirect(url);
+      }
+      throw new BadRequestException('Invalid document URL');
+    }
+    const fileStream = await this.documentUploaderService.downloadFile(doc.fileKey);
+    res.setHeader('Content-Type', fileStream.ContentType || doc.mimetype || 'image/jpeg');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.filename)}"`);
+    (fileStream.Body as Readable).pipe(res);
+  }
+
+  @Get('download-by-url')
+  async downloadByUrl(@Query('url') url: string, @Res() res: Response) {
+    if (!url) throw new BadRequestException('URL required');
+    const doc = await this.documentUploaderService.findByUrl(url);
+    if (!doc) {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return res.redirect(url);
+      }
+      throw new BadRequestException('Invalid document URL');
+    }
+    const fileStream = await this.documentUploaderService.downloadFile(doc.fileKey);
+    res.setHeader('Content-Type', fileStream.ContentType || doc.mimetype || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
+    (fileStream.Body as Readable).pipe(res);
+  }
+
+  @Delete('by-url')
+  async deleteByUrl(@Query('url') url: string) {
+    return this.documentUploaderService.deleteByUrl(url);
+  }
+
+  @Delete('by-ref')
+  async deleteByRef(@Query('refId') refId: string) {
+    return this.documentUploaderService.deleteByRef(refId);
+  }
+
   @Delete('documents/:id')
   async deleteDocument(@Param('id', ParseIntPipe) id: number) {
     return this.documentUploaderService.deleteDoc(id);

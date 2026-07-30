@@ -59,6 +59,9 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   name: string;
 
+  @Column({ type: 'longtext', nullable: true })
+  profilePhoto: string | null;
+
   @Column({ type: 'boolean', default: true })
   isDeletable: boolean;
 }

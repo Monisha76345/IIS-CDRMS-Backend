@@ -15,7 +15,6 @@ import {
 import { rethrowServiceError } from '../common/utils/service-error';
 import { GeoLocation } from './entities/geo-location.entity';
 import { AttributeMaster } from './entities/attribute-master.entity';
-import { ApplicationStatusEntity } from './entities/application-status.entity';
 import { SystemParameter } from './entities/system-parameter.entity';
 import { District } from './entities/district.entity';
 import { Taluk } from './entities/taluk.entity';
@@ -28,7 +27,6 @@ import { MasterZone } from './entities/master-zone.entity';
 import { MasterStatus } from './enums/master-status.enum';
 import { AttributeMasterType } from './enums/attribute-master-type.enum';
 import {
-  UpsertApplicationStatusDto,
   UpsertAttributeMasterDto,
   UpsertDistrictDto,
   UpsertGeoLocationDto,
@@ -46,8 +44,6 @@ export class MastersService {
     private readonly geoRepo: Repository<GeoLocation>,
     @InjectRepository(AttributeMaster)
     private readonly attrRepo: Repository<AttributeMaster>,
-    @InjectRepository(ApplicationStatusEntity)
-    private readonly statusRepo: Repository<ApplicationStatusEntity>,
     @InjectRepository(SystemParameter)
     private readonly paramRepo: Repository<SystemParameter>,
     @InjectRepository(District)
@@ -190,8 +186,26 @@ export class MastersService {
     dto: UpsertAttributeMasterDto,
   ): Promise<AttributeMaster> {
     try {
+      const label = dto.label.trim();
+      const code = dto.code.trim();
+      const existing = await this.attrRepo.findOne({
+        where: [
+          { type: dto.type, code },
+          { type: dto.type, label },
+        ],
+      });
+      if (existing) {
+        if (existing.status !== MasterStatus.ACTIVE) {
+          existing.status = MasterStatus.ACTIVE;
+          existing.label = label;
+          return await this.attrRepo.save(existing);
+        }
+        return existing;
+      }
       const entity = this.attrRepo.create({
         ...dto,
+        label,
+        code,
         status: dto.status ?? MasterStatus.ACTIVE,
       });
       return await this.attrRepo.save(entity);
@@ -211,33 +225,6 @@ export class MastersService {
       return await this.attrRepo.save(entity);
     } catch (error) {
       this.rethrow(error, 'Failed to update attribute master');
-    }
-  }
-
-  // ── Application statuses ───────────────────────────────────
-
-  async findApplicationStatuses(): Promise<ApplicationStatusEntity[]> {
-    return this.statusRepo.find({ order: { code: 'ASC' } });
-  }
-
-  async upsertApplicationStatus(
-    dto: UpsertApplicationStatusDto,
-  ): Promise<ApplicationStatusEntity> {
-    try {
-      let entity = await this.statusRepo.findOne({ where: { code: dto.code } });
-      if (!entity) {
-        entity = this.statusRepo.create({
-          ...dto,
-          status: dto.status ?? MasterStatus.ACTIVE,
-          isSystem: true,
-        });
-      } else {
-        entity.label = dto.label;
-        if (dto.status) entity.status = dto.status;
-      }
-      return await this.statusRepo.save(entity);
-    } catch (error) {
-      this.rethrow(error, 'Failed to save application status');
     }
   }
 

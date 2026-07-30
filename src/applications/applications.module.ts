@@ -6,12 +6,14 @@ import { ApplicationsController } from './applications.controller';
 import { SeriesGeneratorModule } from '../admin/series-generator/series-generator.module';
 import { UsersModule } from '../admin/users/users.module';
 import { MasterZone } from '../admin/masters/entities/master-zone.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Application, MasterZone]),
     SeriesGeneratorModule,
     UsersModule,
+    NotificationsModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],

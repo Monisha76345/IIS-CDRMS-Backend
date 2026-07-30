@@ -8,8 +8,9 @@ export enum ApplicationStatus {
   REJECTED = 'rejected',
 }
 
+/** Site type (ZC create form): Even vs Odd shaped plots. */
 export enum SiteDimensionType {
-  REGULAR = 'Regular',
+  EVEN = 'Even',
   ODD = 'Odd',
 }
 

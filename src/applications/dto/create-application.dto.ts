@@ -34,6 +34,12 @@ export class CreateApplicationDto {
   @IsEnum(SiteDimensionType)
   siteDimensionType: SiteDimensionType;
 
+  /** Plot size e.g. 20*40 or 20*40*50*40 */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  siteDimension: string;
+
   @IsOptional()
   @IsString()
   siteDimensionComment?: string;

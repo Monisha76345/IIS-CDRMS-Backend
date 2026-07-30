@@ -39,6 +39,21 @@ export class ApplicationsController {
     return this.applicationsService.caoCounts(user.sub);
   }
 
+  @Get('meta/task-counts')
+  taskCounts(
+    @CurrentUser() user: JwtRequestUser,
+    @Query('as') asRole?: 'engineer' | 'cao',
+  ) {
+    const role = normalizeRole(user);
+    const as =
+      asRole === 'engineer' || asRole === 'cao'
+        ? asRole
+        : role.includes('cao')
+          ? 'cao'
+          : 'engineer';
+    return this.applicationsService.taskCounts(user.sub, as);
+  }
+
   @Get('engineers')
   engineersByZone(@Query('zoneId') zoneId: string) {
     return this.applicationsService.findEngineersByZone(Number(zoneId));
@@ -48,6 +63,7 @@ export class ApplicationsController {
   list(
     @CurrentUser() user: JwtRequestUser,
     @Query('as') asRole?: 'zc' | 'engineer' | 'cao',
+    @Query('queue') queue?: 'open' | 'all',
   ) {
     const role = normalizeRole(user);
     let as: 'zc' | 'engineer' | 'cao' = 'zc';
@@ -58,7 +74,11 @@ export class ApplicationsController {
     } else if (role.includes('cao')) {
       as = 'cao';
     }
-    return this.applicationsService.listMine(user.sub, as);
+    return this.applicationsService.listMine(
+      user.sub,
+      as,
+      queue === 'open' ? 'open' : 'all',
+    );
   }
 
   @Get(':id')

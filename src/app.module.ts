@@ -10,6 +10,7 @@ import { loadEnvironment } from './config/load-env';
 import { AdminModule } from './admin/admin.module';
 import { ObjectStoreModule } from './object-store/object-store.module';
 import { ApplicationsModule } from './applications/applications.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 loadEnvironment();
 
@@ -51,6 +52,7 @@ loadEnvironment();
     AdminModule,
     ObjectStoreModule,
     ApplicationsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

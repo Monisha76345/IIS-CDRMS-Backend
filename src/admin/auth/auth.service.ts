@@ -14,7 +14,7 @@ import { normalizeAccessKey } from '../common/utils/normalize-access-key';
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
+    public readonly usersService: UsersService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -111,8 +111,45 @@ export class AuthService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = user;
 
+    const officerName = person
+      ? `${person.firstName || ''} ${person.lastName || ''}`.trim()
+      : '';
+
+    // Prefer real uploads; never expose stock /avatars/* placeholders.
+    const rawUserPhoto = (user as any)?.profilePhoto as string | null | undefined;
+    const rawPersonPhoto = (person as any)?.profilePhoto as
+      | string
+      | null
+      | undefined;
+    const profilePhoto = AuthService.pickUploadedPhoto(
+      rawUserPhoto,
+      rawPersonPhoto,
+    );
+
+    // One-shot: wipe leftover stock paths so they never come back.
+    const hasStock =
+      (typeof rawUserPhoto === 'string' &&
+        rawUserPhoto.trim().startsWith('/avatars/')) ||
+      (typeof rawPersonPhoto === 'string' &&
+        rawPersonPhoto.trim().startsWith('/avatars/'));
+    if (hasStock) {
+      void this.usersService
+        .updateProfilePhoto(String(user.id), profilePhoto)
+        .catch(() => undefined);
+    }
+
+    const officer = person
+      ? {
+          ...person,
+          profilePhoto,
+        }
+      : undefined;
+
     return {
       ...userWithoutPassword,
+      profilePhoto,
+      /** Prefer mapped Personal Details name over users.name */
+      name: officerName || userWithoutPassword.name,
       /** Authorization code (Role.code) — use this for guards / UI permission checks */
       role: normalizeAccessKey(roleCode) || roleCode,
       roleName,
@@ -127,8 +164,21 @@ export class AuthService {
             zoneCode: post.zoneCode,
           }
         : undefined,
-      officer: person || undefined,
+      officer,
     };
+  }
+
+  /** Accept data-URL / remote URL only — ignore empty and stock /avatars paths. */
+  static pickUploadedPhoto(
+    ...candidates: Array<string | null | undefined>
+  ): string | null {
+    for (const raw of candidates) {
+      const photo = typeof raw === 'string' ? raw.trim() : '';
+      if (!photo) continue;
+      if (photo.startsWith('/avatars/')) continue;
+      return photo;
+    }
+    return null;
   }
 
   async verifyToken(token: string): Promise<any> {
