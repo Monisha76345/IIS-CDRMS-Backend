@@ -1,6 +1,5 @@
 import {
   IsEnum,
-  IsNotEmpty,
   IsNumberString,
   IsOptional,
   IsString,
@@ -8,71 +7,87 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   ValidateNested,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OccupancyStatus } from '../enums/application.enums';
 
-class SchedulePhotosDto {
+/** Partial schedule photos — only provided sides are updated. */
+class SchedulePhotosDraftDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  N!: string;
+  N?: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  S!: string;
+  S?: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  E!: string;
+  E?: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  W!: string;
+  W?: string;
 }
 
-export class EngineerSubmitApplicationDto {
+/**
+ * Partial engineer capture — persists progress without submitting to CAO.
+ * Only provided fields are written; status stays in_progress.
+ */
+export class EngineerDraftApplicationDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  engineerSiteDetails: string;
+  engineerSiteDetails?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  compass: string;
+  compass?: string;
 
+  @IsOptional()
   @IsNumberString()
-  latitude: string;
+  latitude?: string;
 
+  @IsOptional()
   @IsNumberString()
-  longitude: string;
+  longitude?: string;
 
+  @IsOptional()
   @IsEnum(OccupancyStatus)
-  occupancy: OccupancyStatus;
+  occupancy?: OccupancyStatus;
 
   @IsOptional()
   @IsString()
   occupancyReason?: string;
 
+  @IsOptional()
   @IsNumberString()
-  dimNorth: string;
+  dimNorth?: string;
 
+  @IsOptional()
   @IsNumberString()
-  dimSouth: string;
+  dimSouth?: string;
 
+  @IsOptional()
   @IsNumberString()
-  dimEast: string;
+  dimEast?: string;
 
+  @IsOptional()
   @IsNumberString()
-  dimWest: string;
+  dimWest?: string;
 
   @IsOptional()
   @IsNumberString()
   totalSiteArea?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  selfieUrl: string;
+  selfieUrl?: string;
 
-  /** Optional extra site photos (selfie is separate). */
   @IsOptional()
   @IsArray()
   @ArrayMinSize(0)
@@ -80,12 +95,11 @@ export class EngineerSubmitApplicationDto {
   @IsString({ each: true })
   photoUrls?: string[];
 
-  @IsNotEmpty()
+  @IsOptional()
   @ValidateNested()
-  @Type(() => SchedulePhotosDto)
-  schedulePhotoUrls!: SchedulePhotosDto;
+  @Type(() => SchedulePhotosDraftDto)
+  schedulePhotoUrls?: SchedulePhotosDraftDto;
 
-  /** Engineer may update ZC schedule (site around) text on submit. */
   @IsOptional()
   @IsString()
   scheduleNorth?: string;
@@ -102,11 +116,11 @@ export class EngineerSubmitApplicationDto {
   @IsString()
   scheduleEast?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  videoUrl: string;
+  videoUrl?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  engineerComments: string;
+  engineerComments?: string;
 }

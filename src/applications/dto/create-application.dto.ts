@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -7,9 +8,16 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { SiteDimensionType } from '../enums/application.enums';
 
 export class CreateApplicationDto {
+  /** Super Admin may create on behalf of a zone (no zone on their own post). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  zoneId?: number;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

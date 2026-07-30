@@ -11,6 +11,7 @@ import {
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
+import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
 import {
   CaoRejectApplicationDto,
   CaoReturnApplicationDto,
@@ -30,8 +31,18 @@ export class ApplicationsController {
 
   /** ZC zone + engineers in that zone for the create form. */
   @Get('meta/my-zone')
-  myZone(@CurrentUser() user: JwtRequestUser) {
-    return this.applicationsService.myZoneContext(user.sub);
+  myZone(
+    @CurrentUser() user: JwtRequestUser,
+    @Query('zoneId') zoneId?: string,
+  ) {
+    const parsed =
+      zoneId != null && String(zoneId).trim() !== ''
+        ? Number(zoneId)
+        : undefined;
+    return this.applicationsService.myZoneContext(
+      user.sub,
+      Number.isFinite(parsed) ? parsed : undefined,
+    );
   }
 
   @Get('meta/cao-counts')
@@ -107,6 +118,16 @@ export class ApplicationsController {
     @CurrentUser() user: JwtRequestUser,
   ) {
     return this.applicationsService.startTask(id, user.sub);
+  }
+
+  /** Save partial engineer capture (each step / schedule edit) without CAO submit. */
+  @Patch(':id/draft')
+  saveDraft(
+    @Param('id', ParseAnyUuidPipe) id: string,
+    @CurrentUser() user: JwtRequestUser,
+    @Body() dto: EngineerDraftApplicationDto,
+  ) {
+    return this.applicationsService.saveEngineerDraft(id, user.sub, dto);
   }
 
   @Post(':id/submit')

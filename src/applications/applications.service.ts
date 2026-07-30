@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Application } from './entities/application.entity';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
+import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
 import { ApplicationStatus, OccupancyStatus } from './enums/application.enums';
 import { SeriesGeneratorService } from '../admin/series-generator/series-generator.service';
 import { UsersService } from '../admin/users/users.service';
@@ -406,6 +407,143 @@ export class ApplicationsService {
     return app;
   }
 
+  /**
+   * Persist partial engineer capture without submitting to CAO.
+   * Only fields present on the DTO are updated; status becomes in_progress.
+   */
+  async saveEngineerDraft(
+    id: string,
+    engineerUserId: string,
+    dto: EngineerDraftApplicationDto,
+  ): Promise<Application> {
+    const app = await this.findOne(id);
+    if (app.assignedEngineerUserId !== engineerUserId) {
+      throw new ForbiddenException('This task is not assigned to you');
+    }
+    if (
+      app.status === ApplicationStatus.SUBMITTED ||
+      app.status === ApplicationStatus.VERIFIED
+    ) {
+      throw new BadRequestException('Application already submitted');
+    }
+    if (app.status === ApplicationStatus.REJECTED) {
+      throw new BadRequestException('Application was rejected');
+    }
+
+    if (
+      app.status === ApplicationStatus.ASSIGNED ||
+      app.status === ApplicationStatus.RETURNED
+    ) {
+      app.status = ApplicationStatus.IN_PROGRESS;
+    }
+
+    if (dto.engineerSiteDetails !== undefined) {
+      app.engineerSiteDetails = dto.engineerSiteDetails.trim();
+    }
+    if (dto.compass !== undefined) {
+      app.compass = dto.compass.trim();
+    }
+    if (dto.latitude !== undefined) {
+      app.latitude = dto.latitude;
+    }
+    if (dto.longitude !== undefined) {
+      app.longitude = dto.longitude;
+    }
+    if (dto.occupancy !== undefined) {
+      app.occupancy = dto.occupancy;
+    }
+    if (dto.occupancyReason !== undefined) {
+      app.occupancyReason = dto.occupancyReason.trim() || null;
+    }
+
+    if (dto.dimNorth !== undefined) {
+      const n = Number(dto.dimNorth);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new BadRequestException('Site dimensions must be positive numbers');
+      }
+      app.dimNorth = String(n);
+    }
+    if (dto.dimSouth !== undefined) {
+      const n = Number(dto.dimSouth);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new BadRequestException('Site dimensions must be positive numbers');
+      }
+      app.dimSouth = String(n);
+    }
+    if (dto.dimEast !== undefined) {
+      const n = Number(dto.dimEast);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new BadRequestException('Site dimensions must be positive numbers');
+      }
+      app.dimEast = String(n);
+    }
+    if (dto.dimWest !== undefined) {
+      const n = Number(dto.dimWest);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new BadRequestException('Site dimensions must be positive numbers');
+      }
+      app.dimWest = String(n);
+    }
+
+    if (dto.totalSiteArea !== undefined && dto.totalSiteArea !== '') {
+      app.totalSiteArea = dto.totalSiteArea;
+    } else if (
+      dto.dimNorth !== undefined ||
+      dto.dimSouth !== undefined ||
+      dto.dimEast !== undefined ||
+      dto.dimWest !== undefined
+    ) {
+      const n = Number(app.dimNorth);
+      const s = Number(app.dimSouth);
+      const e = Number(app.dimEast);
+      const w = Number(app.dimWest);
+      if ([n, s, e, w].every((v) => Number.isFinite(v) && v > 0)) {
+        app.totalSiteArea = String(
+          Number((((n + s) / 2) * ((e + w) / 2)).toFixed(2)),
+        );
+      }
+    }
+
+    if (dto.selfieUrl !== undefined) {
+      app.selfieUrl = dto.selfieUrl.trim() || null;
+    }
+    if (dto.photoUrls !== undefined) {
+      app.photoUrls = dto.photoUrls.length ? dto.photoUrls : [];
+    }
+    if (dto.schedulePhotoUrls !== undefined) {
+      const prev =
+        app.schedulePhotoUrls && typeof app.schedulePhotoUrls === 'object'
+          ? { ...app.schedulePhotoUrls }
+          : ({} as Record<string, string>);
+      for (const side of ['N', 'S', 'E', 'W'] as const) {
+        const v = dto.schedulePhotoUrls[side];
+        if (v !== undefined && v.trim()) prev[side] = v.trim();
+      }
+      app.schedulePhotoUrls = prev;
+    }
+    if (dto.scheduleNorth !== undefined) {
+      app.scheduleNorth = dto.scheduleNorth.trim() || null;
+    }
+    if (dto.scheduleSouth !== undefined) {
+      app.scheduleSouth = dto.scheduleSouth.trim() || null;
+    }
+    if (dto.scheduleWest !== undefined) {
+      app.scheduleWest = dto.scheduleWest.trim() || null;
+    }
+    if (dto.scheduleEast !== undefined) {
+      app.scheduleEast = dto.scheduleEast.trim() || null;
+    }
+    if (dto.videoUrl !== undefined) {
+      app.videoUrl = dto.videoUrl.trim() || null;
+    }
+    if (dto.engineerComments !== undefined) {
+      app.engineerComments = dto.engineerComments.trim();
+    }
+
+    app.updatedBy = engineerUserId;
+    return this.applicationRepo.save(app);
+  }
+
   async submitEngineer(
     id: string,
     engineerUserId: string,
@@ -471,10 +609,22 @@ export class ApplicationsService {
     app.dimWest = String(w);
     app.totalSiteArea = total;
     app.selfieUrl = dto.selfieUrl;
-    app.photoUrls = dto.photoUrls;
+    app.photoUrls = dto.photoUrls?.length ? dto.photoUrls : [];
     app.schedulePhotoUrls = dto.schedulePhotoUrls
       ? { ...dto.schedulePhotoUrls }
       : null;
+    if (dto.scheduleNorth !== undefined) {
+      app.scheduleNorth = dto.scheduleNorth.trim() || null;
+    }
+    if (dto.scheduleSouth !== undefined) {
+      app.scheduleSouth = dto.scheduleSouth.trim() || null;
+    }
+    if (dto.scheduleWest !== undefined) {
+      app.scheduleWest = dto.scheduleWest.trim() || null;
+    }
+    if (dto.scheduleEast !== undefined) {
+      app.scheduleEast = dto.scheduleEast.trim() || null;
+    }
     app.videoUrl = dto.videoUrl;
     app.engineerComments = dto.engineerComments.trim();
     app.engineerSubmittedAt = new Date();
@@ -707,7 +857,24 @@ export class ApplicationsService {
   }
 
   /** Zone context for the logged-in ZC (used by create form). */
-  async myZoneContext(userId: string) {
+  async myZoneContext(userId: string, zoneId?: number) {
+    if (zoneId != null && Number.isFinite(zoneId)) {
+      const zone = await this.zoneRepo.findOne({ where: { id: zoneId } });
+      if (!zone || !zone.isActive) {
+        throw new BadRequestException('Selected master zone is invalid or inactive');
+      }
+      const zoneCode = (zone.zoneCode || '').trim().toUpperCase();
+      if (!zoneCode) {
+        throw new BadRequestException('Selected master zone has no zone code');
+      }
+      return {
+        zoneId: zone.id,
+        zoneCode,
+        zoneName: zone.zoneName ?? zoneCode,
+        engineers: await this.findEngineersByZone(zone.id),
+      };
+    }
+
     const ctx = await this.resolveUserZone(userId);
     const zone = await this.zoneRepo.findOne({ where: { id: ctx.zoneId } });
     return {
