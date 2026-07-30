@@ -120,7 +120,7 @@ export class UsersService {
 
   /** Active mapping for a post (with person + post details). */
   async findActiveMappingByPostId(postId: string): Promise<PostPersonMapping | null> {
-    return this.mappingRepository
+    const mapping = await this.mappingRepository
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.post', 'post')
       .leftJoinAndSelect('post.role', 'role')
@@ -132,6 +132,15 @@ export class UsersService {
       .orderBy('m.startDate', 'DESC')
       .addOrderBy('m.id', 'DESC')
       .getOne();
+
+    if (mapping && mapping.person) {
+      const correctStatus = PersonStatus.MAPPED;
+      if (mapping.person.status !== correctStatus) {
+        mapping.person.status = correctStatus;
+        await this.personalDetailsRepository.update({ id: mapping.person.id }, { status: correctStatus });
+      }
+    }
+    return mapping;
   }
 
   /**
@@ -148,7 +157,10 @@ export class UsersService {
       });
       const personOk =
         person &&
-        (person.status == null || person.status === PersonStatus.ACTIVE);
+        (person.status == null ||
+          person.status === PersonStatus.MAPPED ||
+          person.status === PersonStatus.UNMAPPED ||
+          (person.status as string) === 'active');
       if (personOk) {
         mapping = await this.findActiveAssignmentForPerson(person!.id);
       } else {
@@ -178,11 +190,17 @@ export class UsersService {
     const items =
       mappedIds.length === 0
         ? await this.personalDetailsRepository.find({
-            where: { status: PersonStatus.ACTIVE },
+            where: [
+              { status: PersonStatus.UNMAPPED },
+              { status: 'active' as any },
+            ],
             order: { createdAt: 'DESC' },
           })
         : await this.personalDetailsRepository.find({
-            where: { id: Not(In(mappedIds)), status: PersonStatus.ACTIVE },
+            where: [
+              { id: Not(In(mappedIds)), status: PersonStatus.UNMAPPED },
+              { id: Not(In(mappedIds)), status: 'active' as any },
+            ],
             order: { createdAt: 'DESC' },
           });
     return toPaginatedResult(items, items.length, 1, items.length || 10);
@@ -213,16 +231,23 @@ export class UsersService {
 
     const [posts, totalItems] = await qb.getManyAndCount();
     // Heal stale denormalized roleName so list/API always match Role
-    for (const post of posts) {
-      if (post.role?.name && post.roleName !== post.role.name) {
-        post.roleName = post.role.name;
-        await this.postDetailsRepository.update(
-          { id: post.id },
-          { roleName: post.role.name },
-        );
-      }
-    }
-    return toPaginatedResult(posts, totalItems, currentPage, itemsPerPage);
+    const postsWithStatus = await Promise.all(
+      posts.map(async (post) => {
+        if (post.role?.name && post.roleName !== post.role.name) {
+          post.roleName = post.role.name;
+          await this.postDetailsRepository.update(
+            { id: post.id },
+            { roleName: post.role.name },
+          );
+        }
+        const mapping = await this.findActiveMappingByPostId(post.id);
+        return {
+          ...post,
+          status: mapping ? 'mapped' : 'unmapped',
+        };
+      })
+    );
+    return toPaginatedResult(postsWithStatus as any, totalItems, currentPage, itemsPerPage);
   }
 
   async findAllPeople(
@@ -250,7 +275,25 @@ export class UsersService {
     }
 
     const [items, totalItems] = await qb.getManyAndCount();
-    return toPaginatedResult(items, totalItems, currentPage, itemsPerPage);
+
+    const mappedItems = await Promise.all(
+      items.map(async (person) => {
+        const mapping = await this.findActiveAssignmentForPerson(person.id);
+        const correctStatus = mapping ? PersonStatus.MAPPED : PersonStatus.UNMAPPED;
+        if (person.status !== correctStatus) {
+          person.status = correctStatus;
+          await this.personalDetailsRepository.update({ id: person.id }, { status: correctStatus });
+        }
+        return {
+          ...person,
+          aliasName: person.aliasName || mapping?.post?.aliasName || '—',
+          mappedRole: mapping?.post?.roleName || '—',
+          district: person.districtName || '—',
+        };
+      })
+    );
+
+    return toPaginatedResult(mappedItems, totalItems, currentPage, itemsPerPage);
   }
 
   async findAllRoles(
@@ -362,8 +405,8 @@ export class UsersService {
       });
       if (!post) throw new NotFoundException('Designation seat not found');
 
-      if (person.status !== PersonStatus.ACTIVE) {
-        throw new BadRequestException('Person profile is not active');
+      if (person.status === PersonStatus.MAPPED) {
+        throw new BadRequestException('Person profile is already mapped to a post');
       }
 
       const samePair = await this.mappingRepository.findOne({
@@ -400,6 +443,9 @@ export class UsersService {
       });
 
       const savedMapping = await this.mappingRepository.save(mapping);
+
+      person.status = PersonStatus.MAPPED;
+      await this.personalDetailsRepository.save(person);
 
       // Login identity: users.loginId = personal_details.personUniqueId
       // Clear this loginId from any other rows first (one loginId owner).
@@ -468,6 +514,9 @@ export class UsersService {
 
     const person = mapping.person;
     if (person) {
+      person.status = PersonStatus.UNMAPPED;
+      await this.personalDetailsRepository.save(person);
+
       const user =
         (await this.userRepository.findOne({ where: { loginId: person.personUniqueId } })) ||
         (await this.userRepository.findOne({ where: { email: person.email } }));
@@ -636,7 +685,7 @@ export class UsersService {
       }
 
       if (!payload.state) payload.state = 'Karnataka';
-      if (!payload.status) payload.status = PersonStatus.ACTIVE;
+      if (!payload.status) payload.status = PersonStatus.UNMAPPED;
 
       const person = this.personalDetailsRepository.create(payload);
       return await this.personalDetailsRepository.save(person);
@@ -691,6 +740,13 @@ export class UsersService {
   async findPersonById(id: string): Promise<PersonalDetails> {
     const person = await this.personalDetailsRepository.findOne({ where: { id } });
     if (!person) throw new NotFoundException('Officer profile not found');
+
+    const mapping = await this.findActiveAssignmentForPerson(person.id);
+    const correctStatus = mapping ? PersonStatus.MAPPED : PersonStatus.UNMAPPED;
+    if (person.status !== correctStatus) {
+      person.status = correctStatus;
+      await this.personalDetailsRepository.update({ id: person.id }, { status: correctStatus });
+    }
     return person;
   }
 

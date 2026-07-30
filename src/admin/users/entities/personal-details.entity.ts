@@ -51,10 +51,13 @@ export class PersonalDetails extends BaseEntity {
   @Column({ type: 'longtext', nullable: true })
   profilePhoto: string | null;
 
+  @Column({ nullable: true })
+  aliasName: string;
+
   @Column({
     type: 'enum',
     enum: PersonStatus,
-    default: PersonStatus.ACTIVE,
+    default: PersonStatus.UNMAPPED,
     nullable: true,
   })
   status: PersonStatus;

@@ -46,13 +46,27 @@ export class S3ClientService implements OnModuleInit {
         secretAccessKey: secretKey,
       },
       forcePathStyle: true,
+      maxAttempts: 1,
+      requestHandler: {
+        requestTimeout: 3000,   // 3 s — fail fast if MinIO is unreachable
+        connectionTimeout: 3000,
+      } as any,
     });
 
     this.logger.log(`S3 client configured for bucket "${this.bucket}" at ${endpoint}`);
   }
 
   async onModuleInit(): Promise<void> {
-    await this.ensureBucketExists();
+    try {
+      await this.ensureBucketExists();
+    } catch (error: any) {
+      // Do NOT crash the app if MinIO is unreachable (e.g. local dev without MinIO running).
+      // File upload/download endpoints will still fail, but auth and all other APIs work fine.
+      this.logger.warn(
+        `MinIO is unreachable — bucket check skipped. File operations will be unavailable. ` +
+        `Reason: ${error?.message || error}`,
+      );
+    }
   }
 
   private async ensureBucketExists(): Promise<void> {
@@ -63,7 +77,7 @@ export class S3ClientService implements OnModuleInit {
     } catch (error: any) {
       const status = error?.$metadata?.httpStatusCode;
       const code = error?.name || error?.Code;
-      // Missing bucket → create it. Other errors must not kill API boot.
+      // Missing bucket → create it. Other errors (auth, network) → rethrow to onModuleInit.
       if (status !== 404 && code !== 'NotFound' && code !== 'NoSuchBucket') {
         this.logger.warn(
           `Skipping bucket check for "${this.bucket}" (storage unreachable): ${error?.message || error}`,
