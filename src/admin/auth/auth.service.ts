@@ -148,7 +148,7 @@ export class AuthService {
     return {
       ...userWithoutPassword,
       profilePhoto,
-      /** Prefer mapped Personal Details name over users.name */
+      /** Prefer mapped User Details name over users.name */
       name: officerName || userWithoutPassword.name,
       /** Authorization code (Role.code) — use this for guards / UI permission checks */
       role: normalizeAccessKey(roleCode) || roleCode,
