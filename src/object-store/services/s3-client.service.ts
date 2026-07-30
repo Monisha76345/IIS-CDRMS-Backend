@@ -63,12 +63,12 @@ export class S3ClientService implements OnModuleInit {
     } catch (error: any) {
       const status = error?.$metadata?.httpStatusCode;
       const code = error?.name || error?.Code;
-      // Missing bucket → create it. Other errors (auth, network) should surface.
+      // Missing bucket → create it. Other errors must not kill API boot.
       if (status !== 404 && code !== 'NotFound' && code !== 'NoSuchBucket') {
-        this.logger.error(
-          `Could not verify bucket "${this.bucket}": ${error?.message || error}`,
+        this.logger.warn(
+          `Skipping bucket check for "${this.bucket}" (storage unreachable): ${error?.message || error}`,
         );
-        throw error;
+        return;
       }
     }
 
@@ -81,10 +81,9 @@ export class S3ClientService implements OnModuleInit {
         this.logger.log(`Bucket "${this.bucket}" already exists`);
         return;
       }
-      this.logger.error(
-        `Failed to create bucket "${this.bucket}": ${error?.message || error}`,
+      this.logger.warn(
+        `Skipping bucket create for "${this.bucket}" (storage unreachable): ${error?.message || error}`,
       );
-      throw error;
     }
   }
 
