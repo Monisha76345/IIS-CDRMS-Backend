@@ -46,10 +46,11 @@ export class S3ClientService implements OnModuleInit {
         secretAccessKey: secretKey,
       },
       forcePathStyle: true,
-      maxAttempts: 1,
+      maxAttempts: 2,
       requestHandler: {
-        requestTimeout: 3000,   // 3 s — fail fast if MinIO is unreachable
-        connectionTimeout: 3000,
+        // Real camera photos can be several MB — 3s was causing upload failures.
+        requestTimeout: 120_000,
+        connectionTimeout: 15_000,
       } as any,
     });
 

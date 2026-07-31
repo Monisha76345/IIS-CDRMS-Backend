@@ -162,10 +162,17 @@ export class ObjectStoreController {
     if (!url) throw new BadRequestException('URL required');
     const doc = await this.documentUploaderService.findByUrl(url);
     if (!doc) {
-      if (url.startsWith('http://') || url.startsWith('https://')) {
+      // Never redirect phones to MinIO's 127.0.0.1 URL — they cannot reach it.
+      const isLoopback =
+        /127\.0\.0\.1|localhost/i.test(url) ||
+        url.startsWith('http://0.0.0.0');
+      if (
+        !isLoopback &&
+        (url.startsWith('http://') || url.startsWith('https://'))
+      ) {
         return res.redirect(url);
       }
-      throw new BadRequestException('Invalid document URL');
+      throw new BadRequestException('Document not found for URL');
     }
     const fileStream = await this.documentUploaderService.downloadFile(doc.fileKey);
     res.setHeader('Content-Type', fileStream.ContentType || doc.mimetype || 'image/jpeg');

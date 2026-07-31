@@ -105,7 +105,34 @@ export class DocumentUploaderService {
 
   async findByUrl(url: string): Promise<DocumentMetaInfoEntity | null> {
     if (!url) return null;
-    return this.documentRepository.findOne({ where: { imageUrl: url } });
+    let decoded = url.trim();
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      /* keep raw */
+    }
+
+    const exact =
+      (await this.documentRepository.findOne({ where: { imageUrl: decoded } })) ||
+      (decoded !== url
+        ? await this.documentRepository.findOne({ where: { imageUrl: url.trim() } })
+        : null);
+    if (exact) return exact;
+
+    // Fallback: match by path so localhost vs 127.0.0.1 still resolves for mobile preview.
+    try {
+      const pathname = new URL(decoded).pathname;
+      if (pathname.length > 8) {
+        return this.documentRepository
+          .createQueryBuilder('d')
+          .where('d.imageUrl LIKE :suffix', { suffix: `%${pathname}` })
+          .orderBy('d.createdAt', 'DESC')
+          .getOne();
+      }
+    } catch {
+      /* ignore invalid URL */
+    }
+    return null;
   }
 
   async findByRefId(refId: string): Promise<DocumentMetaInfoEntity[]> {
