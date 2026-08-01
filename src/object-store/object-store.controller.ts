@@ -109,6 +109,68 @@ export class ObjectStoreController {
     };
   }
 
+  /** Stream uploaded file bytes by refId (for PDF export / mobile preview). */
+  @Get('view-by-ref')
+  async viewByRef(@Query('refId') refId: string, @Res() res: Response) {
+    if (!refId?.trim()) throw new BadRequestException('refId required');
+    const docs = await this.documentUploaderService.findByRefId(refId.trim());
+    const latest = docs[0];
+    if (!latest?.fileKey) {
+      throw new NotFoundException('No document for this ref');
+    }
+    const fileStream = await this.documentUploaderService.downloadFile(latest.fileKey);
+    res.setHeader(
+      'Content-Type',
+      fileStream.ContentType || latest.mimetype || 'image/jpeg',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(latest.filename)}"`,
+    );
+    (fileStream.Body as Readable).pipe(res);
+  }
+
+  /** Proxy OSM static map server-side (avoids browser CORS on PDF export). */
+  @Get('map-snapshot')
+  async mapSnapshot(
+    @Query('lat') latRaw: string,
+    @Query('lng') lngRaw: string,
+    @Res() res: Response,
+  ) {
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new BadRequestException('Valid lat and lng required');
+    }
+
+    const urls = [
+      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=16&size=900x480&markers=${lat},${lng},red-pushpin`,
+      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=640x360&markers=${lat},${lng},red`,
+      `https://maps.wikimedia.org/img/osm-intl,16,${lat},${lng},900x480.png`,
+    ];
+
+    for (const mapUrl of urls) {
+      try {
+        const upstream = await fetch(mapUrl, {
+          headers: { 'User-Agent': 'CDRMS/1.0 (map-snapshot)' },
+        });
+        if (!upstream.ok) continue;
+        const ct = upstream.headers.get('content-type') || 'image/png';
+        if (!ct.startsWith('image/')) continue;
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        if (buf.length < 256) continue;
+        res.setHeader('Content-Type', ct);
+        res.setHeader('Content-Length', String(buf.length));
+        res.send(buf);
+        return;
+      } catch {
+        /* try next */
+      }
+    }
+
+    throw new BadRequestException('Map snapshot unavailable');
+  }
+
   @Get('documents')
   async listDocuments(@Query() query: DocumentQueryDto) {
     if (!query.entityType || query.entityId == null) {
