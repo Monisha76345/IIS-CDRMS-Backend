@@ -89,17 +89,11 @@ export class Application extends BaseEntity {
   assignedCaoName: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ApplicationStatus,
+    type: 'varchar',
+    length: 50,
     default: ApplicationStatus.ASSIGNED,
   })
   status: ApplicationStatus;
-
-  @Column({ type: 'text', nullable: true })
-  caoRemarks: string | null;
-
-  @Column({ type: 'datetime', nullable: true })
-  caoReviewedAt: Date | null;
 
   // ── Engineer capture ───────────────────────────────────────
 
@@ -166,8 +160,4 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'datetime', nullable: true })
   engineerSubmittedAt: Date | null;
-
-  /** Append-only workflow trail (create / submit / send-back / approve / reject). */
-  @Column({ type: 'json', nullable: true })
-  history: ApplicationHistoryItem[] | null;
 }

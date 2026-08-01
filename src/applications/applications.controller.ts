@@ -12,11 +12,6 @@ import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
 import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
-import {
-  CaoRejectApplicationDto,
-  CaoReturnApplicationDto,
-  CaoReviewApplicationDto,
-} from './dto/cao-review.dto';
 import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
 import {
   CurrentUser,
@@ -137,33 +132,6 @@ export class ApplicationsController {
     @Body() dto: EngineerSubmitApplicationDto,
   ) {
     return this.applicationsService.submitEngineer(id, user.sub, dto);
-  }
-
-  @Post(':id/verify')
-  verify(
-    @Param('id', ParseAnyUuidPipe) id: string,
-    @CurrentUser() user: JwtRequestUser,
-    @Body() dto: CaoReviewApplicationDto,
-  ) {
-    return this.applicationsService.caoVerify(id, user.sub, dto.remarks);
-  }
-
-  @Post(':id/return')
-  returnToEngineer(
-    @Param('id', ParseAnyUuidPipe) id: string,
-    @CurrentUser() user: JwtRequestUser,
-    @Body() dto: CaoReturnApplicationDto,
-  ) {
-    return this.applicationsService.caoReturn(id, user.sub, dto.remarks);
-  }
-
-  @Post(':id/reject')
-  reject(
-    @Param('id', ParseAnyUuidPipe) id: string,
-    @CurrentUser() user: JwtRequestUser,
-    @Body() dto: CaoRejectApplicationDto,
-  ) {
-    return this.applicationsService.caoReject(id, user.sub, dto.remarks);
   }
 }
 

@@ -32,13 +32,11 @@ export class DashboardService {
           status: In([
             ApplicationStatus.ASSIGNED,
             ApplicationStatus.IN_PROGRESS,
-            ApplicationStatus.SUBMITTED,
-            ApplicationStatus.RETURNED,
           ]),
         },
       }),
       this.applicationRepository.count({
-        where: { status: ApplicationStatus.VERIFIED },
+        where: { status: ApplicationStatus.SUBMITTED },
       }),
       this.geoLocationRepository.count(),
       this.applicationRepository

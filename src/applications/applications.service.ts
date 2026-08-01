@@ -106,18 +106,7 @@ export class ApplicationsService {
     return `${role} — ${n}`;
   }
 
-  private appendHistory(
-    app: Application,
-    item: Omit<ApplicationHistoryItem, 'id'>,
-  ): void {
-    const entry: ApplicationHistoryItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      ...item,
-      comments: item.comments?.trim() || '—',
-    };
-    const prev = Array.isArray(app.history) ? app.history : [];
-    app.history = [...prev, entry];
-  }
+
 
   private async resolveUserZone(userId: string): Promise<{
     user: User;
@@ -220,7 +209,6 @@ export class ApplicationsService {
       createdByZcName: zc.displayName,
       status: ApplicationStatus.ASSIGNED,
       createdBy: zcUserId,
-      history: [],
     });
 
     const now = new Date();
@@ -232,30 +220,7 @@ export class ApplicationsService {
         ])
       ).get(dto.assignedEngineerUserId)?.loginId;
 
-    this.appendHistory(app, {
-      taskName: 'Application created',
-      performedBy: await this.formatActor(zcUserId, 'Zonal Commissioner'),
-      sentTo: this.formatParty(assigned.name, 'Engineer', engineerLogin),
-      startedOn: this.toIso(now),
-      completedOn: this.toIso(now),
-      comments: dto.siteDimensionComment?.trim() || '—',
-      statusBefore: undefined,
-      statusAfter: ApplicationStatus.ASSIGNED,
-    });
-
     const saved = await this.applicationRepo.save(app);
-
-    await this.notificationsService.create({
-      userId: saved.assignedEngineerUserId,
-      title: 'New field task assigned',
-      message: `${zc.displayName || 'Zonal Commissioner'} assigned application ${saved.applicationNumber} (Site ${saved.siteNo}, Zone ${saved.zoneCode}) to you for field capture.`,
-      type: 'task_assigned',
-      applicationId: saved.id,
-      applicationNumber: saved.applicationNumber,
-      linkPath: `/engineer/tasks/${saved.id}`,
-      createdBy: zcUserId,
-    });
-
     return saved;
   }
 
@@ -361,8 +326,7 @@ export class ApplicationsService {
         apps = apps.filter(
           (a) =>
             a.status === ApplicationStatus.ASSIGNED ||
-            a.status === ApplicationStatus.IN_PROGRESS ||
-            a.status === ApplicationStatus.RETURNED,
+            a.status === ApplicationStatus.IN_PROGRESS,
         );
       } else if (as === 'cao' || roleStr.includes('cao')) {
         apps = apps.filter((a) => a.status === ApplicationStatus.SUBMITTED);
@@ -380,10 +344,7 @@ export class ApplicationsService {
   async caoCounts(caoUserId: string) {
     const apps = await this.listMine(caoUserId, 'cao');
     return {
-      pending: apps.filter((a) => a.status === ApplicationStatus.SUBMITTED).length,
-      verified: apps.filter((a) => a.status === ApplicationStatus.VERIFIED).length,
-      returned: apps.filter((a) => a.status === ApplicationStatus.RETURNED).length,
-      rejected: apps.filter((a) => a.status === ApplicationStatus.REJECTED).length,
+      submitted: apps.filter((a) => a.status === ApplicationStatus.SUBMITTED).length,
       total: apps.length,
     };
   }
@@ -471,38 +432,21 @@ export class ApplicationsService {
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
     }
-    if (
-      app.status === ApplicationStatus.SUBMITTED ||
-      app.status === ApplicationStatus.VERIFIED ||
-      app.status === ApplicationStatus.REJECTED
-    ) {
+    if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
     }
-    if (
-      app.status === ApplicationStatus.ASSIGNED ||
-      app.status === ApplicationStatus.RETURNED
-    ) {
+    if (app.status === ApplicationStatus.ASSIGNED) {
       const statusBefore = app.status;
       const startedOn = this.toIso(app.updatedAt || app.createdAt);
       app.status = ApplicationStatus.IN_PROGRESS;
       app.updatedBy = engineerUserId;
-      this.appendHistory(app, {
-        taskName: 'Inspection started',
-        performedBy: await this.formatActor(engineerUserId, 'Engineer'),
-        sentTo: '—',
-        startedOn,
-        completedOn: this.toIso(new Date()),
-        comments: '—',
-        statusBefore,
-        statusAfter: ApplicationStatus.IN_PROGRESS,
-      });
       return this.applicationRepo.save(app);
     }
     return app;
   }
 
   /**
-   * Persist partial engineer capture without submitting to CAO.
+   * Persist partial engineer capture.
    * Only fields present on the DTO are updated; status becomes in_progress.
    */
   async saveEngineerDraft(
@@ -514,20 +458,11 @@ export class ApplicationsService {
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
     }
-    if (
-      app.status === ApplicationStatus.SUBMITTED ||
-      app.status === ApplicationStatus.VERIFIED
-    ) {
+    if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
     }
-    if (app.status === ApplicationStatus.REJECTED) {
-      throw new BadRequestException('Application was rejected');
-    }
 
-    if (
-      app.status === ApplicationStatus.ASSIGNED ||
-      app.status === ApplicationStatus.RETURNED
-    ) {
+    if (app.status === ApplicationStatus.ASSIGNED) {
       app.status = ApplicationStatus.IN_PROGRESS;
     }
 
@@ -655,14 +590,8 @@ export class ApplicationsService {
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
     }
-    if (
-      app.status === ApplicationStatus.SUBMITTED ||
-      app.status === ApplicationStatus.VERIFIED
-    ) {
+    if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
-    }
-    if (app.status === ApplicationStatus.REJECTED) {
-      throw new BadRequestException('Application was rejected');
     }
 
     const dims = dto.engineerDimensions
@@ -699,17 +628,9 @@ export class ApplicationsService {
 
     const caos = await this.usersService.findActiveCaoMappingsByZone(app.zoneId);
     const cao = caos.find((c) => c.userId);
-    if (!cao?.userId) {
-      throw new BadRequestException(
-        `No CAO is mapped to zone ${app.zoneCode}. Ask Super Admin to map a CAO post to this zone before submit.`,
-      );
-    }
 
     const statusBefore = app.status;
     const startedOn = this.toIso(app.updatedAt || app.createdAt);
-    const wasResubmit =
-      Boolean(app.engineerSubmittedAt) ||
-      statusBefore === ApplicationStatus.RETURNED;
 
     app.engineerSiteDetails = dto.engineerSiteDetails?.trim() || null;
     app.compass = dto.compass.trim();
@@ -742,232 +663,29 @@ export class ApplicationsService {
     app.videoUrl = dto.videoUrl;
     app.engineerComments = dto.engineerComments.trim();
     app.engineerSubmittedAt = new Date();
-    app.assignedCaoUserId = cao.userId;
-    app.assignedCaoName = cao.displayName || null;
+    if (cao?.userId) {
+      app.assignedCaoUserId = cao.userId;
+      app.assignedCaoName = cao.displayName || null;
+    }
     app.status = ApplicationStatus.SUBMITTED;
-    app.caoRemarks = null;
-    app.caoReviewedAt = null;
     app.updatedBy = engineerUserId;
 
-    this.appendHistory(app, {
-      taskName: wasResubmit ? 'Engineer resubmitted' : 'Engineer submitted',
-      performedBy: await this.formatActor(engineerUserId, 'Engineer'),
-      sentTo: this.formatParty(cao.displayName, 'CAO'),
-      startedOn,
-      completedOn: this.toIso(app.engineerSubmittedAt),
-      comments: dto.engineerComments.trim() || '—',
-      statusBefore,
-      statusAfter: ApplicationStatus.SUBMITTED,
-    });
-
     const saved = await this.applicationRepo.save(app);
 
-    await this.notificationsService.create({
-      userId: cao.userId,
-      title: 'Application ready for review',
-      message: `${saved.assignedEngineerName || 'Engineer'} submitted application ${saved.applicationNumber} (Site ${saved.siteNo}, Zone ${saved.zoneCode}). Please verify and decide.`,
-      type: 'task_submitted',
-      applicationId: saved.id,
-      applicationNumber: saved.applicationNumber,
-      linkPath: `/cao/tasks/${saved.id}`,
-      createdBy: engineerUserId,
-    });
-
-    return saved;
-  }
-
-  private async assertAssignedCao(app: Application, caoUserId: string) {
-    if (app.assignedCaoUserId !== caoUserId) {
-      throw new ForbiddenException('This task is not assigned to you');
-    }
-    if (app.status !== ApplicationStatus.SUBMITTED) {
-      throw new BadRequestException('Only submitted tasks can be reviewed');
-    }
-  }
-
-  async caoVerify(
-    id: string,
-    caoUserId: string,
-    remarks?: string,
-  ): Promise<Application> {
-    const app = await this.findOne(id);
-    await this.assertAssignedCao(app, caoUserId);
-    if (!remarks?.trim()) {
-      throw new BadRequestException('Remarks are required when approving');
-    }
-    const statusBefore = app.status;
-    const startedOn = this.toIso(app.engineerSubmittedAt || app.updatedAt);
-    const comments = remarks.trim();
-    app.status = ApplicationStatus.VERIFIED;
-    app.caoRemarks = comments;
-    app.caoReviewedAt = new Date();
-    app.updatedBy = caoUserId;
-    this.appendHistory(app, {
-      taskName: 'CAO approved',
-      performedBy: await this.formatActor(caoUserId, 'CAO'),
-      sentTo: '—',
-      startedOn,
-      completedOn: this.toIso(app.caoReviewedAt),
-      comments: comments || '—',
-      statusBefore,
-      statusAfter: ApplicationStatus.VERIFIED,
-    });
-    const saved = await this.applicationRepo.save(app);
-    await this.notifyDecision(saved, caoUserId, 'verified');
-    return saved;
-  }
-
-  async caoReturn(
-    id: string,
-    caoUserId: string,
-    remarks: string,
-  ): Promise<Application> {
-    const app = await this.findOne(id);
-    await this.assertAssignedCao(app, caoUserId);
-    if (!remarks?.trim()) {
-      throw new BadRequestException('Remarks are required when returning');
-    }
-    const statusBefore = app.status;
-    const startedOn = this.toIso(app.engineerSubmittedAt || app.updatedAt);
-    const comments = remarks.trim();
-    const engLogin = (
-      await this.usersService.resolveEngineerDisplayByIds([
-        app.assignedEngineerUserId,
-      ])
-    ).get(app.assignedEngineerUserId)?.loginId;
-
-    app.status = ApplicationStatus.RETURNED;
-    app.caoRemarks = comments;
-    app.caoReviewedAt = new Date();
-    app.updatedBy = caoUserId;
-    this.appendHistory(app, {
-      taskName: 'Sent back to engineer',
-      performedBy: await this.formatActor(caoUserId, 'CAO'),
-      sentTo: this.formatParty(
-        app.assignedEngineerName,
-        'Engineer (for clarification)',
-        engLogin,
-      ),
-      startedOn,
-      completedOn: this.toIso(app.caoReviewedAt),
-      comments,
-      statusBefore,
-      statusAfter: ApplicationStatus.RETURNED,
-    });
-    const saved = await this.applicationRepo.save(app);
-    await this.notifyDecision(saved, caoUserId, 'returned');
-    return saved;
-  }
-
-  async caoReject(
-    id: string,
-    caoUserId: string,
-    remarks: string,
-  ): Promise<Application> {
-    const app = await this.findOne(id);
-    await this.assertAssignedCao(app, caoUserId);
-    if (!remarks?.trim()) {
-      throw new BadRequestException('Remarks are required when rejecting');
-    }
-    const statusBefore = app.status;
-    const startedOn = this.toIso(app.engineerSubmittedAt || app.updatedAt);
-    const comments = remarks.trim();
-    app.status = ApplicationStatus.REJECTED;
-    app.caoRemarks = comments;
-    app.caoReviewedAt = new Date();
-    app.updatedBy = caoUserId;
-    this.appendHistory(app, {
-      taskName: 'CAO rejected',
-      performedBy: await this.formatActor(caoUserId, 'CAO'),
-      sentTo: '—',
-      startedOn,
-      completedOn: this.toIso(app.caoReviewedAt),
-      comments,
-      statusBefore,
-      statusAfter: ApplicationStatus.REJECTED,
-    });
-    const saved = await this.applicationRepo.save(app);
-    await this.notifyDecision(saved, caoUserId, 'rejected');
-    return saved;
-  }
-
-  private async notifyDecision(
-    app: Application,
-    caoUserId: string,
-    kind: 'verified' | 'returned' | 'rejected',
-  ) {
-    const caoName = app.assignedCaoName || 'CAO';
-    const site = `application ${app.applicationNumber} (Site ${app.siteNo}, Zone ${app.zoneCode})`;
-
-    const engineerPayload =
-      kind === 'verified'
-        ? {
-            title: 'Application verified',
-            message: `${caoName} verified and approved ${site}.`,
-            type: 'task_verified',
-          }
-        : kind === 'returned'
-          ? {
-              title: 'Application returned for fixes',
-              message: `${caoName} returned ${site}. Remarks: ${app.caoRemarks || '—'}`,
-              type: 'task_returned',
-            }
-          : {
-              title: 'Application rejected',
-              message: `${caoName} rejected ${site}. Remarks: ${app.caoRemarks || '—'}`,
-              type: 'task_rejected',
-            };
-
-    const zcPayload =
-      kind === 'verified'
-        ? {
-            title: 'Application verified',
-            message: `${caoName} verified ${site} submitted by ${app.assignedEngineerName || 'engineer'}.`,
-            type: 'task_verified',
-          }
-        : kind === 'returned'
-          ? {
-              title: 'Application returned',
-              message: `${caoName} returned ${site} to ${app.assignedEngineerName || 'engineer'} for fixes.`,
-              type: 'task_returned',
-            }
-          : {
-              title: 'Application rejected',
-              message: `${caoName} rejected ${site} assigned to ${app.assignedEngineerName || 'engineer'}.`,
-              type: 'task_rejected',
-            };
-
-    const recipients = [
-      {
-        userId: app.assignedEngineerUserId,
-        linkPath: `/engineer/tasks/${app.id}`,
-        ...engineerPayload,
-      },
-    ];
-
-    if (
-      app.createdByZcUserId &&
-      app.createdByZcUserId !== app.assignedEngineerUserId
-    ) {
-      recipients.push({
-        userId: app.createdByZcUserId,
-        linkPath: `/admin/applications/${app.id}`,
-        ...zcPayload,
+    if (cao?.userId) {
+      await this.notificationsService.create({
+        userId: cao.userId,
+        title: 'Report submitted successfully',
+        message: `Report for application ${saved.applicationNumber} (Site ${saved.siteNo}, Zone ${saved.zoneCode}) was submitted successfully by Engineer ${saved.assignedEngineerName || ''}.`,
+        type: 'report_submitted',
+        applicationId: saved.id,
+        applicationNumber: saved.applicationNumber,
+        linkPath: `/cao/applications/${saved.id}`,
+        createdBy: engineerUserId,
       });
     }
 
-    await this.notificationsService.createMany(
-      recipients.map((r) => ({
-        userId: r.userId,
-        title: r.title,
-        message: r.message,
-        type: r.type,
-        applicationId: app.id,
-        applicationNumber: app.applicationNumber,
-        linkPath: r.linkPath,
-        createdBy: caoUserId,
-      })),
-    );
+    return saved;
   }
 
   /** Zone context for the logged-in ZC (used by create form). */

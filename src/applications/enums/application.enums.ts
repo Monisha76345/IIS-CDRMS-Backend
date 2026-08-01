@@ -1,11 +1,8 @@
 export enum ApplicationStatus {
   ASSIGNED = 'assigned',
   IN_PROGRESS = 'in_progress',
-  /** Engineer submitted — waiting for zone CAO */
+  /** Engineer submitted */
   SUBMITTED = 'submitted',
-  VERIFIED = 'verified',
-  RETURNED = 'returned',
-  REJECTED = 'rejected',
 }
 
 /** Site type (ZC create form): Even vs Odd shaped plots. */

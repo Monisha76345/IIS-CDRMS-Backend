@@ -75,10 +75,7 @@ export class PublicService {
     const labels: Record<ApplicationStatus, string> = {
       [ApplicationStatus.ASSIGNED]: 'Assigned',
       [ApplicationStatus.IN_PROGRESS]: 'In progress',
-      [ApplicationStatus.SUBMITTED]: 'Pending CAO',
-      [ApplicationStatus.VERIFIED]: 'Verified',
-      [ApplicationStatus.RETURNED]: 'Returned',
-      [ApplicationStatus.REJECTED]: 'Rejected',
+      [ApplicationStatus.SUBMITTED]: 'Submitted',
     };
     return Object.values(ApplicationStatus).map((code) => ({
       code,
