@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from '../../common/core/models/base.entity';
 import { UserType } from '../enums/user-types.enum';
 import { UserStatus } from '../enums/user-status.enum';
+import { UserTheme } from '../enums/user-theme.enum';
 
 export { UserStatus } from '../enums/user-status.enum';
 
@@ -61,6 +62,13 @@ export class User extends BaseEntity {
 
   @Column({ type: 'longtext', nullable: true })
   profilePhoto: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: UserTheme,
+    default: UserTheme.BLUE,
+  })
+  themePreference: UserTheme;
 
   @Column({ type: 'boolean', default: true })
   isDeletable: boolean;

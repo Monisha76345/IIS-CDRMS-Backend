@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
 import { User, UserStatus } from './entities/user.entity';
+import { UserTheme } from './enums/user-theme.enum';
 import { UserType } from './enums/user-types.enum';
 import { MappingStatus, PersonStatus } from './enums/assignment-status';
 import { Role } from '../roles/entities/role.entity';
@@ -1070,5 +1071,15 @@ export class UsersService {
 
   async deleteProfilePhoto(userId: string) {
     return this.updateProfilePhoto(userId, null);
+  }
+
+  async updateThemePreference(userId: string, themePreference: UserTheme) {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    user.themePreference = themePreference;
+    await this.userRepository.save(user);
+
+    return { success: true, themePreference };
   }
 }

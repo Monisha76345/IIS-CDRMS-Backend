@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Patch,
   Post,
   Req,
   Res,
@@ -17,6 +18,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateThemeDto } from './dto/update-theme.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -118,5 +120,15 @@ export class AuthController {
   async deleteAvatar(@Req() request: Request) {
     const userId = request['user'].sub;
     return this.authService.usersService.deleteProfilePhoto(userId);
+  }
+
+  @Patch('profile/theme')
+  @UseGuards(JwtAuthGuard)
+  async updateTheme(@Req() request: Request, @Body() dto: UpdateThemeDto) {
+    const userId = request['user'].sub;
+    return this.authService.usersService.updateThemePreference(
+      userId,
+      dto.themePreference,
+    );
   }
 }
