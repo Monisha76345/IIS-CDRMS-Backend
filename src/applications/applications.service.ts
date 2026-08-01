@@ -262,8 +262,6 @@ export class ApplicationsService {
       assignedCaoUserId: true,
       assignedCaoName: true,
       status: true,
-      caoRemarks: true,
-      caoReviewedAt: true,
       compass: true,
       latitude: true,
       longitude: true,
