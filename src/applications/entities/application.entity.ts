@@ -109,6 +109,14 @@ export class Application extends BaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 8, nullable: true })
   longitude: string | null;
 
+  /**
+   * Reverse-geocoded place captured with engineer GPS (step 2 / submit).
+   * Keys: displayName, village, taluk, district, state, street, area, block,
+   * postalCode, country, accuracy.
+   */
+  @Column({ type: 'json', nullable: true })
+  engineerGeoAddress: Record<string, string | number | null> | null;
+
   @Column({ type: 'enum', enum: OccupancyStatus, nullable: true })
   occupancy: OccupancyStatus | null;
 

@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OccupancyStatus } from '../enums/application.enums';
+import { EngineerGeoAddressDto } from './engineer-geo-address.dto';
 
 /** Partial schedule photos — only provided sides are updated. Empty string clears. */
 class SchedulePhotosDraftDto {
@@ -106,6 +107,11 @@ export class EngineerDraftApplicationDto {
   @IsOptional()
   @IsNumberString()
   longitude?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EngineerGeoAddressDto)
+  engineerGeoAddress?: EngineerGeoAddressDto;
 
   @IsOptional()
   @IsEnum(OccupancyStatus)

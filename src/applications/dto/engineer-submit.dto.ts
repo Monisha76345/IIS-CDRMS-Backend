@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OccupancyStatus } from '../enums/application.enums';
+import { EngineerGeoAddressDto } from './engineer-geo-address.dto';
 
 class SchedulePhotosDto {
   @IsString()
@@ -95,6 +96,11 @@ export class EngineerSubmitApplicationDto {
 
   @IsNumberString()
   longitude: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EngineerGeoAddressDto)
+  engineerGeoAddress?: EngineerGeoAddressDto;
 
   @IsEnum(OccupancyStatus)
   occupancy: OccupancyStatus;

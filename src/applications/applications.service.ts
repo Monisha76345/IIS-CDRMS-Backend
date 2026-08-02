@@ -77,6 +77,40 @@ export class ApplicationsService {
     if (prev.W != null) app.dimWest = prev.W;
   }
 
+  private normalizeEngineerGeoAddress(
+    raw: object | null | undefined,
+  ): Record<string, string | number | null> | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const src = raw as Record<string, unknown>;
+    const pick = (key: string) => {
+      const v = src[key];
+      if (v == null) return undefined;
+      const s = String(v).trim();
+      return s || undefined;
+    };
+    const out: Record<string, string | number | null> = {};
+    for (const key of [
+      'displayName',
+      'village',
+      'taluk',
+      'district',
+      'state',
+      'street',
+      'name',
+      'layoutName',
+      'area',
+      'block',
+      'postalCode',
+      'country',
+    ] as const) {
+      const v = pick(key);
+      if (v !== undefined) out[key] = v;
+    }
+    const accuracy = Number(src.accuracy);
+    if (Number.isFinite(accuracy)) out.accuracy = accuracy;
+    return Object.keys(out).length ? out : null;
+  }
+
   private async formatActor(userId: string, roleLabel: string): Promise<string> {
     const user = await this.usersService.findById(userId);
     if (!user) return roleLabel;
@@ -265,6 +299,7 @@ export class ApplicationsService {
       compass: true,
       latitude: true,
       longitude: true,
+      engineerGeoAddress: true,
       occupancy: true,
       dimNorth: true,
       dimSouth: true,
@@ -477,6 +512,9 @@ export class ApplicationsService {
     if (dto.longitude !== undefined) {
       app.longitude = dto.longitude;
     }
+    if (dto.engineerGeoAddress !== undefined) {
+      app.engineerGeoAddress = this.normalizeEngineerGeoAddress(dto.engineerGeoAddress);
+    }
     if (dto.occupancy !== undefined) {
       app.occupancy = dto.occupancy;
     }
@@ -635,6 +673,9 @@ export class ApplicationsService {
     app.compass = dto.compass.trim();
     app.latitude = dto.latitude;
     app.longitude = dto.longitude;
+    if (dto.engineerGeoAddress !== undefined) {
+      app.engineerGeoAddress = this.normalizeEngineerGeoAddress(dto.engineerGeoAddress);
+    }
     app.occupancy = dto.occupancy;
     app.occupancyReason = dto.occupancyReason?.trim() || null;
     app.totalSiteArea = total;
