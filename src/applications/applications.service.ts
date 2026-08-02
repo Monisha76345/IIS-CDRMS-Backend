@@ -274,12 +274,13 @@ export class ApplicationsService {
       selfieUrl: true,
       engineerSubmittedAt: true,
       engineerDimensions: true,
+      engineerSiteDetails: true,
       createdAt: true,
       updatedAt: true,
       createdBy: true,
       updatedBy: true,
       // Explicitly omitted: history, photoUrls, schedulePhotoUrls, videoUrl,
-      // engineerScheduleNotes, scheduleRoadFlags, engineerSiteDetails,
+      // engineerScheduleNotes, scheduleRoadFlags,
       // engineerComments, occupancyReason, siteDimensionComment
     } as const;
 
