@@ -64,8 +64,8 @@ export class User extends BaseEntity {
   profilePhoto: string | null;
 
   @Column({
-    type: 'enum',
-    enum: UserTheme,
+    type: 'varchar',
+    length: 32,
     default: UserTheme.BLUE,
   })
   themePreference: UserTheme;

@@ -1,5 +1,5 @@
 /**
- * Adds users.themePreference if missing (MySQL).
+ * Ensures users.themePreference exists as VARCHAR (supports all theme ids).
  * Usage: npm run db:migrate:theme
  */
 import mysql, { type RowDataPacket } from 'mysql2/promise';
@@ -20,21 +20,28 @@ async function main() {
   });
 
   const [rows] = await conn.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS
+    `SELECT DATA_TYPE AS dataType, COLUMN_TYPE AS columnType
+     FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'themePreference'`,
     [database],
   );
 
-  const exists = Number((rows[0] as { c: number })?.c ?? 0) > 0;
+  const col = rows[0] as { dataType?: string; columnType?: string } | undefined;
 
-  if (exists) {
-    console.log('[db:migrate:theme] users.themePreference already exists — nothing to do.');
-  } else {
+  if (!col) {
     await conn.query(`
       ALTER TABLE users
-        ADD COLUMN themePreference ENUM('blue', 'teal', 'indigo', 'emerald') NOT NULL DEFAULT 'blue'
+        ADD COLUMN themePreference VARCHAR(32) NOT NULL DEFAULT 'blue'
     `);
-    console.log('[db:migrate:theme] Added users.themePreference column (default: blue).');
+    console.log('[db:migrate:theme] Added users.themePreference VARCHAR(32).');
+  } else if (String(col.dataType).toLowerCase() === 'enum') {
+    await conn.query(`
+      ALTER TABLE users
+        MODIFY COLUMN themePreference VARCHAR(32) NOT NULL DEFAULT 'blue'
+    `);
+    console.log('[db:migrate:theme] Converted themePreference ENUM → VARCHAR(32).');
+  } else {
+    console.log('[db:migrate:theme] users.themePreference already VARCHAR — ok.');
   }
 
   await conn.end();
