@@ -21,6 +21,11 @@ export class CreateApplicationDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
+  eOfficeNumber: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   siteNo: string;
 
   @IsString()

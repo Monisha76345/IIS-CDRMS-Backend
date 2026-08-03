@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -216,6 +217,20 @@ export class ApplicationsService {
       );
     }
 
+    const eOfficeNumber = dto.eOfficeNumber.trim();
+    if (!eOfficeNumber) {
+      throw new BadRequestException('E-office number is required');
+    }
+    const duplicate = await this.applicationRepo.findOne({
+      where: { eOfficeNumber },
+      select: { id: true, applicationNumber: true },
+    });
+    if (duplicate) {
+      throw new ConflictException(
+        `E-office number "${eOfficeNumber}" is already used by ${duplicate.applicationNumber}`,
+      );
+    }
+
     const prefix = `ZC-${zc.zoneCode}-AUC-`;
     const applicationNumber = await this.seriesGenerator.generateAndSavePrefix(
       prefix,
@@ -224,6 +239,7 @@ export class ApplicationsService {
 
     const app = this.applicationRepo.create({
       applicationNumber,
+      eOfficeNumber,
       siteNo: dto.siteNo.trim(),
       addressArea: dto.addressArea.trim(),
       addressBlock: dto.addressBlock.trim(),
@@ -277,6 +293,7 @@ export class ApplicationsService {
     const listSelect = {
       id: true,
       applicationNumber: true,
+      eOfficeNumber: true,
       siteNo: true,
       addressArea: true,
       addressBlock: true,

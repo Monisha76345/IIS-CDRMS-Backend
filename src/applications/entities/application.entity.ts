@@ -16,6 +16,10 @@ export class Application extends BaseEntity {
   @Column({ unique: true })
   applicationNumber: string;
 
+  /** E-office file / reference number — unique across applications. */
+  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+  eOfficeNumber: string | null;
+
   @Column()
   siteNo: string;
 
