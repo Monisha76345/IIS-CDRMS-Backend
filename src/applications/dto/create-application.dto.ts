@@ -5,8 +5,8 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SiteDimensionType } from '../enums/application.enums';
@@ -38,10 +38,12 @@ export class CreateApplicationDto {
   @MaxLength(150)
   addressBlock: string;
 
+  /** Indian PIN code — exactly 6 digits, first digit 1–9. */
   @IsString()
   @IsNotEmpty()
-  @MinLength(4)
-  @MaxLength(20)
+  @Matches(/^[1-9][0-9]{5}$/, {
+    message: 'Pincode must be a valid 6-digit Indian PIN code (cannot start with 0)',
+  })
   addressPincode: string;
 
   @IsEnum(SiteDimensionType)
