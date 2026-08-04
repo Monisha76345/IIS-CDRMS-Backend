@@ -44,8 +44,13 @@ function typeOrmOptionsFromEnv(): TypeOrmModuleOptions {
     }),
     CacheModule.register({
       isGlobal: true,
-      ttl: requireEnvNumber('CACHE_TTL_MS'),
-      max: requireEnvNumber('CACHE_MAX'),
+      // Optional — set CACHE_TTL_MS / CACHE_MAX in `.env` to override Nest defaults.
+      ...(process.env.CACHE_TTL_MS?.trim()
+        ? { ttl: requireEnvNumber('CACHE_TTL_MS') }
+        : {}),
+      ...(process.env.CACHE_MAX?.trim()
+        ? { max: requireEnvNumber('CACHE_MAX') }
+        : {}),
     }),
     TypeOrmModule.forRoot(typeOrmOptionsFromEnv()),
     AdminModule,

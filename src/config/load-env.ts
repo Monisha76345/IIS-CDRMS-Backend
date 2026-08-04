@@ -20,7 +20,24 @@ export function loadEnvironment(): string {
     throw new Error('Missing .env — create .env in the project root with all required keys');
   }
 
-  dotenv.config({ path: envPath });
+  // Always apply `.env` values (override empty / partial dotenvx injection).
+  const result = dotenv.config({ path: envPath, override: true });
+  if (result.error) {
+    throw new Error(`Failed to load .env at ${envPath}: ${result.error.message}`);
+  }
+
+  // dotenvx-encrypted files are not readable by plain dotenv — keys stay missing.
+  const rawFile = fs.readFileSync(envPath, 'utf8');
+  if (
+    rawFile.includes('DOTENV_PUBLIC_KEY') ||
+    rawFile.trimStart().startsWith('dotenvx') ||
+    /encrypted:/i.test(rawFile.slice(0, 200))
+  ) {
+    console.warn(
+      `[env] ${envPath} looks dotenvx-encrypted. Plain dotenv cannot read it. ` +
+        `Either use a plaintext .env, or: dotenvx set CACHE_TTL_MS 300000 && dotenvx set CACHE_MAX 2000`,
+    );
+  }
 
   const envName = String(process.env.NODE_ENV || process.env.ENVIRONMENT || '').trim();
   if (!envName) {
