@@ -59,7 +59,7 @@ export class ObjectStoreController {
     @UploadedFile() file: Express.Multer.File,
     @Query() query: UploadDocumentDto,
   ) {
-    const kind = detectUploadKind(file);
+    const kind = detectUploadKind(file, query.mediaKind);
     assertSafeUpload(file, { kind });
 
     const bufferedFile: BufferedFile = {

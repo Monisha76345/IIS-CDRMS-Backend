@@ -16,6 +16,11 @@ export class UploadDocumentDto {
 
   @IsString()
   refId: string;
+
+  /** Client hint: image | video | document (mobile sends video for .mp4). */
+  @IsOptional()
+  @IsString()
+  mediaKind?: string;
 }
 
 export class DocumentQueryDto {

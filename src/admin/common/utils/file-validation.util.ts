@@ -9,13 +9,6 @@ export const SAFE_IMAGE_MIME_TYPES = new Set([
   'image/gif',
 ]);
 
-export const SAFE_DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ...SAFE_IMAGE_MIME_TYPES,
-]);
-
 export const SAFE_VIDEO_MIME_TYPES = new Set([
   'video/mp4',
   'video/quicktime',
@@ -23,6 +16,20 @@ export const SAFE_VIDEO_MIME_TYPES = new Set([
   'video/3gpp',
   'video/3gpp2',
   'video/x-m4v',
+  'video/mpeg',
+  'video/avi',
+  'video/x-msvideo',
+]);
+
+export const SAFE_DOCUMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ...SAFE_IMAGE_MIME_TYPES,
+  // Mobile inspection videos historically upload as entityType DOCUMENT —
+  // allow video MIME on the document path too.
+  ...SAFE_VIDEO_MIME_TYPES,
+  'application/octet-stream',
 ]);
 
 const SAFE_IMAGE_EXTENSIONS = new Set([
@@ -32,12 +39,7 @@ const SAFE_IMAGE_EXTENSIONS = new Set([
   '.webp',
   '.gif',
 ]);
-const SAFE_DOCUMENT_EXTENSIONS = new Set([
-  ...SAFE_IMAGE_EXTENSIONS,
-  '.pdf',
-  '.doc',
-  '.docx',
-]);
+
 const SAFE_VIDEO_EXTENSIONS = new Set([
   '.mp4',
   '.mov',
@@ -45,6 +47,14 @@ const SAFE_VIDEO_EXTENSIONS = new Set([
   '.m4v',
   '.3gp',
   '.3gpp',
+]);
+
+const SAFE_DOCUMENT_EXTENSIONS = new Set([
+  ...SAFE_IMAGE_EXTENSIONS,
+  ...SAFE_VIDEO_EXTENSIONS,
+  '.pdf',
+  '.doc',
+  '.docx',
 ]);
 
 const DANGEROUS_EXTENSIONS = new Set([
@@ -74,10 +84,26 @@ export interface FileValidationOptions {
   maxSizeBytes?: number;
 }
 
-/** Infer upload kind from filename / MIME (mobile videos arrive as refType OTHER). */
+function isVideoSignal(ext: string, mime: string): boolean {
+  return (
+    SAFE_VIDEO_EXTENSIONS.has(ext) ||
+    mime.startsWith('video/') ||
+    mime === 'application/octet-stream'
+  );
+}
+
+/**
+ * Infer upload kind from filename / MIME / optional client hint.
+ * Mobile videos often arrive as entityType DOCUMENT + refType OTHER.
+ */
 export function detectUploadKind(
   file: Express.Multer.File | undefined | null,
+  mediaKindHint?: string | null,
 ): FileValidationKind {
+  const hint = (mediaKindHint || '').toLowerCase().trim();
+  if (hint === 'video' || hint === 'image' || hint === 'document') {
+    return hint;
+  }
   if (!file) return 'document';
   const ext = path.extname(file.originalname || '').toLowerCase();
   const mime = (file.mimetype || '').toLowerCase().trim();
@@ -105,15 +131,44 @@ function allowedForKind(kind: FileValidationKind): {
   if (kind === 'video') {
     return {
       extensions: SAFE_VIDEO_EXTENSIONS,
-      mimes: SAFE_VIDEO_MIME_TYPES,
+      mimes: new Set([
+        ...SAFE_VIDEO_MIME_TYPES,
+        'application/octet-stream',
+      ]),
       defaultMaxBytes: 100 * 1024 * 1024,
     };
   }
   return {
     extensions: SAFE_DOCUMENT_EXTENSIONS,
     mimes: SAFE_DOCUMENT_MIME_TYPES,
-    defaultMaxBytes: 25 * 1024 * 1024,
+    defaultMaxBytes: 100 * 1024 * 1024,
   };
+}
+
+/** Ensure multer file has a usable extension when Android omits one. */
+export function normalizeUploadFileName(
+  file: Express.Multer.File,
+): Express.Multer.File {
+  const current = file.originalname || '';
+  let ext = path.extname(current).toLowerCase();
+  const mime = (file.mimetype || '').toLowerCase().trim();
+
+  if (!ext) {
+    if (mime.includes('mp4') || mime === 'video/mp4') ext = '.mp4';
+    else if (mime.includes('quicktime') || mime.includes('mov')) ext = '.mov';
+    else if (mime.includes('webm')) ext = '.webm';
+    else if (mime.startsWith('video/')) ext = '.mp4';
+    else if (mime.includes('png')) ext = '.png';
+    else if (mime.includes('jpeg') || mime.includes('jpg')) ext = '.jpg';
+    else if (mime.includes('pdf')) ext = '.pdf';
+
+    if (ext) {
+      const base = current.replace(/\.[^.]*$/, '') || 'upload';
+      file.originalname = `${base}${ext}`;
+    }
+  }
+
+  return file;
 }
 
 export function assertSafeUpload(
@@ -124,7 +179,19 @@ export function assertSafeUpload(
     throw new HttpException('File is required.', HttpStatus.BAD_REQUEST);
   }
 
-  const { extensions, mimes, defaultMaxBytes } = allowedForKind(options.kind);
+  normalizeUploadFileName(file);
+
+  // Video files must never be rejected just because the route said "document".
+  let kind = options.kind;
+  const finalExt = path.extname(file.originalname || '').toLowerCase();
+  const finalMime = (file.mimetype || '').toLowerCase().trim();
+  if (kind === 'document' && SAFE_VIDEO_EXTENSIONS.has(finalExt)) {
+    kind = 'video';
+  } else if (kind === 'document' && finalMime.startsWith('video/')) {
+    kind = 'video';
+  }
+
+  const { extensions, mimes, defaultMaxBytes } = allowedForKind(kind);
   const maxSize = options.maxSizeBytes ?? defaultMaxBytes;
   if (file.size > maxSize) {
     throw new HttpException(
@@ -133,41 +200,34 @@ export function assertSafeUpload(
     );
   }
 
-  const ext = path.extname(file.originalname || '').toLowerCase();
-  if (!ext) {
+  if (!finalExt) {
     throw new HttpException(
       'File must have a valid extension.',
       HttpStatus.BAD_REQUEST,
     );
   }
 
-  if (DANGEROUS_EXTENSIONS.has(ext)) {
+  if (DANGEROUS_EXTENSIONS.has(finalExt)) {
     throw new HttpException(
-      `File type "${ext}" is not allowed.`,
+      `File type "${finalExt}" is not allowed.`,
       HttpStatus.BAD_REQUEST,
     );
   }
 
-  if (!extensions.has(ext)) {
+  if (!extensions.has(finalExt) && !SAFE_VIDEO_EXTENSIONS.has(finalExt)) {
     throw new HttpException(
-      `File extension "${ext}" is not allowed for ${options.kind} uploads.`,
+      `File extension "${finalExt}" is not allowed for ${kind} uploads.`,
       HttpStatus.BAD_REQUEST,
     );
   }
 
-  const mime = (file.mimetype || '').toLowerCase().trim();
-  if (!mime || !mimes.has(mime)) {
-    // Android often sends octet-stream / mpeg for camera .mp4 — allow when ext is safe.
-    const mimeOkForVideoExt =
-      options.kind === 'video' &&
-      SAFE_VIDEO_EXTENSIONS.has(ext) &&
-      (mime === 'application/octet-stream' ||
-        mime === 'video/mpeg' ||
-        mime === 'video/avi' ||
-        mime.startsWith('video/'));
-    if (!mimeOkForVideoExt) {
+  if (!finalMime || !mimes.has(finalMime)) {
+    const mimeOkForVideo =
+      isVideoSignal(finalExt, finalMime) &&
+      SAFE_VIDEO_EXTENSIONS.has(finalExt);
+    if (!mimeOkForVideo) {
       throw new HttpException(
-        `File MIME type "${mime || 'unknown'}" is not allowed for ${options.kind} uploads.`,
+        `File MIME type "${finalMime || 'unknown'}" is not allowed for ${kind} uploads.`,
         HttpStatus.BAD_REQUEST,
       );
     }
