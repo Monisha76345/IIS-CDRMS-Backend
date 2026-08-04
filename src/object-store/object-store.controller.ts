@@ -23,10 +23,16 @@ import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../admin/auth/guards/permissions.guard';
 import { Permissions } from '../admin/auth/decorators/permissions.decorator';
 import { UserType } from '../admin/users/enums/user-types.enum';
-import { assertSafeUpload } from '../admin/common/utils/file-validation.util';
+import {
+  assertSafeUpload,
+  detectUploadKind,
+} from '../admin/common/utils/file-validation.util';
 import { DocumentQueryDto, UploadDocumentDto } from './dto/upload-document.dto';
 import { BufferedFile } from './interfaces/buffered-file.interface';
 import { DocumentUploaderService } from './services/document-uploader.service';
+
+/** Photos/docs 25MB; inspection videos up to 100MB. */
+const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 @Controller('object-store')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -46,14 +52,15 @@ export class ObjectStoreController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 25 * 1024 * 1024 },
+      limits: { fileSize: UPLOAD_MAX_BYTES },
     }),
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Query() query: UploadDocumentDto,
   ) {
-    assertSafeUpload(file, { kind: 'document', maxSizeBytes: 25 * 1024 * 1024 });
+    const kind = detectUploadKind(file);
+    assertSafeUpload(file, { kind });
 
     const bufferedFile: BufferedFile = {
       fieldname: file.fieldname,
