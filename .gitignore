@@ -15,7 +15,10 @@ lerna-debug.log*
 # OS
 .DS_Store
 
-# Environment variables — single file only
+# Environment variables
+# .env          — switcher (NODE_ENV=local|dev|prod)
+# .env.local    — full config when NODE_ENV=local
+# .env.dev      — full config when NODE_ENV=dev
 .env
 .env.*
 

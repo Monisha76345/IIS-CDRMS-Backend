@@ -1,6 +1,9 @@
 # IIS CDRMS Backend
 
-NestJS API for CDRMS. All configuration lives in a single `.env` file.
+NestJS API for CDRMS. Env loading:
+
+1. `.env` — switcher only (`NODE_ENV=local` | `dev` | `prod`)
+2. `.env.local` / `.env.dev` / `.env.prod` — full config for that environment
 
 ## Prerequisites
 
@@ -12,7 +15,8 @@ NestJS API for CDRMS. All configuration lives in a single `.env` file.
 
 ```bash
 npm install
-# edit .env (APP_PORT, DB_*, CACHE_*, JWT_*, …)
+# .env already has NODE_ENV=local
+# edit .env.local as needed (DB_*, CACHE_*, APP_PORT, …)
 npm run start:dev
 ```
 

@@ -40,7 +40,8 @@ function typeOrmOptionsFromEnv(): TypeOrmModuleOptions {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      // Vars already loaded by loadEnvironment() from `.env` → `.env.local`
+      ignoreEnvFile: true,
     }),
     CacheModule.register({
       isGlobal: true,
