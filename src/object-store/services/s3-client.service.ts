@@ -33,7 +33,9 @@ export class S3ClientService implements OnModuleInit {
     const region = require('AWS_REGION');
     const accessKey = require('MINIO_ACCESS_KEY');
     const secretKey = require('MINIO_SECRET_KEY');
-    this.bucket = require('MINIO_BUCKET_NAME');
+    // Take first line / first token only — broken .env (missing newline) was
+    // concatenating the next keys into the bucket name → InvalidBucketName.
+    this.bucket = this.sanitizeBucketName(require('MINIO_BUCKET_NAME'));
 
     const endpoint = this.normalizeEndpoint(endpointRaw, port);
     this.publicBaseUrl = `${endpoint}/${this.bucket}`;
@@ -113,6 +115,30 @@ export class S3ClientService implements OnModuleInit {
     } catch {
       return `http://127.0.0.1:${port}`;
     }
+  }
+
+  /** S3/MinIO bucket names: 3–63 chars, lowercase alphanumeric + hyphen. */
+  private sanitizeBucketName(raw: string): string {
+    const firstLine = raw.split(/\r?\n/)[0] ?? raw;
+    // Stop at accidental glued env keys (e.g. "bucketMINIO_FILE_…")
+    const cut = firstLine.split(/(?=MINIO_|AWS_|DB_|JWT_|APP_)/)[0] ?? firstLine;
+    const cleaned = cut
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (cleaned.length < 3) {
+      throw new Error(
+        `Invalid MINIO_BUCKET_NAME after sanitize: "${raw.slice(0, 80)}". ` +
+          `Fix .env — ensure bucket name is on its own line.`,
+      );
+    }
+    if (cleaned !== firstLine.trim().toLowerCase()) {
+      this.logger.warn(
+        `MINIO_BUCKET_NAME looked corrupted ("${raw.slice(0, 60)}…"); using "${cleaned}"`,
+      );
+    }
+    return cleaned.slice(0, 63);
   }
 
   buildPublicUrl(key: string): string {
