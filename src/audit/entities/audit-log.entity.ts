@@ -1,57 +1,35 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { BaseEntity } from '../../admin/common/core/models/base.entity';
 
+/**
+ * Matches live `audit_logs` table:
+ * createdBy, createdAt, updatedBy, updatedAt, id, actionType, title, meta, userId, userName
+ */
 @Entity('audit_logs')
 @Index('IDX_AUDIT_USER_CREATED', ['userId', 'createdAt'])
-@Index('IDX_AUDIT_MODULE_ACTION', ['module', 'action'])
-export class AuditLog {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+@Index('IDX_AUDIT_ACTION_TYPE', ['actionType'])
+export class AuditLog extends BaseEntity {
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id', type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255 })
+  actionType: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  title: string;
+
+  /** JSON string with request details (method, path, status, ip, body, …). */
+  @Column({ type: 'text', nullable: true })
+  meta: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
   userId: string | null;
 
-  @Column({ name: 'username', type: 'varchar', length: 255, nullable: true })
-  username: string | null;
-
-  @Column({ name: 'module', type: 'varchar', length: 128, nullable: false })
-  module: string;
-
-  @Column({ name: 'action', type: 'varchar', length: 64, nullable: false })
-  action: string;
-
-  @Column({ name: 'method', type: 'varchar', length: 16, nullable: true })
-  method: string | null;
-
-  @Column({ name: 'path', type: 'varchar', length: 512, nullable: true })
-  path: string | null;
-
-  @Column({ name: 'status_code', type: 'int', nullable: true })
-  statusCode: number | null;
-
-  @Column({ name: 'ip_address', type: 'varchar', length: 64, nullable: true })
-  ipAddress: string | null;
-
-  @Column({ name: 'user_agent', type: 'varchar', length: 512, nullable: true })
-  userAgent: string | null;
-
-  @Column({ name: 'entity_type', type: 'varchar', length: 128, nullable: true })
-  entityType: string | null;
-
-  @Column({ name: 'entity_id', type: 'varchar', length: 128, nullable: true })
-  entityId: string | null;
-
-  @Column({ name: 'old_value', type: 'json', nullable: true })
-  oldValue: Record<string, unknown> | null;
-
-  @Column({ name: 'new_value', type: 'json', nullable: true })
-  newValue: Record<string, unknown> | null;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  userName: string | null;
 }

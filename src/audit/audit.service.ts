@@ -41,11 +41,10 @@ export class AuditService {
 
   async log(input: CreateAuditLogInput): Promise<void> {
     try {
-      const row = this.auditRepo.create({
-        userId: input.userId ?? null,
-        username: input.username ?? null,
+      const actionType = String(input.action || 'OTHER').slice(0, 255);
+      const title = `${actionType} ${input.module || 'app'}`.slice(0, 255);
+      const meta = JSON.stringify({
         module: input.module,
-        action: String(input.action),
         method: input.method ?? null,
         path: input.path ?? null,
         statusCode: input.statusCode ?? null,
@@ -55,6 +54,16 @@ export class AuditService {
         entityId: input.entityId ?? null,
         oldValue: input.oldValue ?? null,
         newValue: input.newValue ?? null,
+      });
+
+      const row = this.auditRepo.create({
+        actionType,
+        title,
+        meta,
+        userId: input.userId ?? null,
+        userName: input.username ?? null,
+        createdBy: input.username ?? input.userId ?? null,
+        updatedBy: input.username ?? input.userId ?? null,
       });
       await this.auditRepo.save(row);
     } catch (err) {
