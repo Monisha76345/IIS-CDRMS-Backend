@@ -2,59 +2,36 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 
-let loadedEnvName: string | null = null;
+let loaded = false;
 
 /**
- * `.env` is the switcher only (NODE_ENV=local | NODE_ENV=dev).
- * Then loads exactly one file: `.env.local` or `.env.dev`.
- * No hardcoded fallbacks — missing NODE_ENV or target file throws.
+ * Loads a single `.env` file from the project root.
+ * No `.env.local` / `.env.dev` / `.env.example` — everything lives in `.env`.
  */
 export function loadEnvironment(): string {
-  if (loadedEnvName) return loadedEnvName;
+  if (loaded) {
+    return String(process.env.NODE_ENV || process.env.ENVIRONMENT || 'local').trim();
+  }
 
   const root = process.cwd();
-  const selectorPath = path.resolve(root, '.env');
+  const envPath = path.resolve(root, '.env');
 
-  if (!fs.existsSync(selectorPath)) {
-    throw new Error('Missing .env — set NODE_ENV=local or NODE_ENV=dev');
+  if (!fs.existsSync(envPath)) {
+    throw new Error('Missing .env — create .env in the project root with all required keys');
   }
 
-  dotenv.config({ path: selectorPath });
+  dotenv.config({ path: envPath });
 
-  const raw = process.env.NODE_ENV;
-  if (raw == null || String(raw).trim() === '') {
-    throw new Error('Missing NODE_ENV in .env — use local or dev');
+  const envName = String(process.env.NODE_ENV || process.env.ENVIRONMENT || '').trim();
+  if (!envName) {
+    throw new Error('Missing NODE_ENV (or ENVIRONMENT) in .env');
   }
 
-  const envName = String(raw).trim().toLowerCase();
-  const allowed = new Set(['local', 'dev', 'development', 'production', 'prod', 'test']);
-  if (!allowed.has(envName)) {
-    throw new Error(
-      `Unsupported NODE_ENV="${envName}" in .env — use local or dev (file: .env.${envName})`,
-    );
-  }
-
-  // Map aliases to file names if needed
-  const fileKey =
-    envName === 'development' ? 'dev' : envName === 'production' ? 'prod' : envName;
-
-  const targetPath = path.resolve(root, `.env.${fileKey}`);
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(
-      `Env file not found: .env.${fileKey} (from NODE_ENV=${envName} in .env)`,
-    );
-  }
-
-  // Load only the selected env file; override selector values with file values
-  dotenv.config({ path: targetPath, override: true });
-
-  // Keep selector intent: NODE_ENV stays what .env chose
-  process.env.NODE_ENV = envName;
   if (!process.env.ENVIRONMENT || String(process.env.ENVIRONMENT).trim() === '') {
-    process.env.ENVIRONMENT = fileKey;
+    process.env.ENVIRONMENT = envName;
   }
 
-  loadedEnvName = envName;
+  loaded = true;
   return envName;
 }
 
@@ -80,4 +57,20 @@ export function requireEnvNumber(key: string): number {
     throw new Error(`Env ${key} must be a number, got: ${raw}`);
   }
   return n;
+}
+
+/** `true` / `false` (case-insensitive) from `.env`. */
+export function requireEnvBool(key: string): boolean {
+  const raw = requireEnv(key).toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error(`Env ${key} must be true or false, got: ${raw}`);
+}
+
+/** Comma-separated list from `.env`. */
+export function requireEnvList(key: string): string[] {
+  return requireEnv(key)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }

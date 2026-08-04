@@ -15,13 +15,9 @@ lerna-debug.log*
 # OS
 .DS_Store
 
-# Environment variables
+# Environment variables — single file only
 .env
-.env.local
-.env.dev
-.env.prod
 .env.*
-!.env.example
 
 # Tests
 /coverage

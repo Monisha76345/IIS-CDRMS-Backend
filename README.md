@@ -1,22 +1,18 @@
 # IIS CDRMS Backend
 
-NestJS API for CDRMS. Env loading matches the CPMS/DMS style:
-
-1. `.env` — switcher only (`NODE_ENV=local` | `dev` | `prod`)
-2. `.env.local` / `.env.dev` / `.env.prod` — full config for that environment
+NestJS API for CDRMS. All configuration lives in a single `.env` file.
 
 ## Prerequisites
 
 - Node.js 20+
-- MySQL (local: `root` / `root@123`)
+- MySQL
 - Optional: Redis, MinIO
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # already present with NODE_ENV=local
-# edit .env.local as needed (DB_DATABASE=cdrms)
+# edit .env (APP_PORT, DB_*, CACHE_*, JWT_*, …)
 npm run start:dev
 ```
 

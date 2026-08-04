@@ -1,30 +1,19 @@
 #!/usr/bin/env bash
 # Migrate all user themePreference values → ocean (Ocean Blue only).
-# Reads DB_* from .env / .env.local via the same load pattern as the app.
+# Reads DB_* from `.env` only.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [[ ! -f .env ]]; then
-  echo "Missing .env — set NODE_ENV=local or NODE_ENV=dev"
+  echo "Missing .env"
   exit 1
 fi
 
-# shellcheck disable=SC1091
 set -a
-# Selector
 # shellcheck disable=SC1091
-source <(grep -E '^(NODE_ENV)=' .env | sed 's/\r$//')
-ENV_NAME="${NODE_ENV:-local}"
-ENV_FILE=".env.${ENV_NAME}"
-if [[ "$ENV_NAME" == "development" ]]; then ENV_FILE=".env.dev"; fi
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Env file not found: $ENV_FILE"
-  exit 1
-fi
-# shellcheck disable=SC1091
-source <(grep -E '^(DB_HOST|DB_PORT|DB_USERNAME|DB_PASSWORD|DB_DATABASE)=' "$ENV_FILE" | sed 's/\r$//')
+source <(grep -E '^(DB_HOST|DB_PORT|DB_USERNAME|DB_PASSWORD|DB_DATABASE)=' .env | sed 's/\r$//')
 set +a
 
 : "${DB_HOST:?Missing DB_HOST}"
