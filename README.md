@@ -20,8 +20,8 @@ cp .env.example .env   # already present with NODE_ENV=local
 npm run start:dev
 ```
 
-API base: `http://localhost:3700/api`  
-Health: `http://localhost:3700/api/health`
+API base: `http://localhost:3710/api`  
+Health: `http://localhost:3710/api/health`
 
 ## Modules (ported from CPMS pattern)
 

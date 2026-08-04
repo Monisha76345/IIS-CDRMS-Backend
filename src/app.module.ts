@@ -14,6 +14,27 @@ import { NotificationsModule } from './notifications/notifications.module';
 
 loadEnvironment();
 
+function requireConfig(configService: ConfigService, key: string): string {
+  const value = configService.get<string>(key);
+  if (value == null || String(value).trim() === '') {
+    throw new Error(`Missing required env: ${key}`);
+  }
+  return String(value).trim();
+}
+
+function requireConfigNumber(configService: ConfigService, key: string): number {
+  const raw = requireConfig(configService, key);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    throw new Error(`Env ${key} must be a number, got: ${raw}`);
+  }
+  return n;
+}
+
+function envFlagTrue(configService: ConfigService, key: string): boolean {
+  return requireConfig(configService, key).toLowerCase() === 'true';
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,33 +42,27 @@ loadEnvironment();
       // Vars already loaded by loadEnvironment() from .env → .env.{local|dev}
       ignoreEnvFile: true,
     }),
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      ttl: 5 * 60 * 1000,
-      max: 2000,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        ttl: requireConfigNumber(configService, 'CACHE_TTL_MS'),
+        max: requireConfigNumber(configService, 'CACHE_MAX'),
+      }),
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const required = (key: string) => {
-          const value = configService.get<string>(key);
-          if (value == null || String(value).trim() === '') {
-            throw new Error(`Missing required env: ${key}`);
-          }
-          return value;
-        };
-        return {
-          type: required('DB_TYPE') as 'mysql',
-          host: required('DB_HOST'),
-          port: Number(required('DB_PORT')),
-          username: required('DB_USERNAME'),
-          password: required('DB_PASSWORD'),
-          database: required('DB_DATABASE'),
-          autoLoadEntities: true,
-          synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
-          logging: configService.get<string>('DB_LOGGING') === 'true',
-        };
-      },
+      useFactory: (configService: ConfigService) => ({
+        type: requireConfig(configService, 'DB_TYPE') as 'mysql',
+        host: requireConfig(configService, 'DB_HOST'),
+        port: requireConfigNumber(configService, 'DB_PORT'),
+        username: requireConfig(configService, 'DB_USERNAME'),
+        password: requireConfig(configService, 'DB_PASSWORD'),
+        database: requireConfig(configService, 'DB_DATABASE'),
+        autoLoadEntities: true,
+        synchronize: envFlagTrue(configService, 'DB_SYNCHRONIZE'),
+        logging: envFlagTrue(configService, 'DB_LOGGING'),
+      }),
     }),
     AdminModule,
     ObjectStoreModule,

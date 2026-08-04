@@ -66,7 +66,7 @@ export class User extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 32,
-    default: UserTheme.BLUE,
+    default: UserTheme.OCEAN,
   })
   themePreference: UserTheme;
 
