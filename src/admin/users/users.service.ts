@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
+import { Transactional } from 'typeorm-transactional';
 import { User, UserStatus } from './entities/user.entity';
 import { UserTheme, normalizeUserTheme } from './enums/user-theme.enum';
 import { UserType } from './enums/user-types.enum';
@@ -385,6 +386,7 @@ export class UsersService {
     }
   }
 
+  @Transactional()
   async mapPersonToPost(dto: {
     personId: string;
     postId: string;
@@ -496,6 +498,7 @@ export class UsersService {
     }
   }
 
+  @Transactional()
   async unmapPersonFromPost(id: number): Promise<PostPersonMapping> {
     const mapping = await this.mappingRepository.findOne({
       where: { id },

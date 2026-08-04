@@ -1,11 +1,20 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule, type TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { DataSource } from 'typeorm';
+import { addTransactionalDataSource } from 'typeorm-transactional';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AllExceptionsFilter } from './admin/common/filters/all-exceptions.filter';
+import { AppThrottlerGuard } from './admin/common/guards/app-throttler.guard';
+import { AdminModule } from './admin/admin.module';
+import { ObjectStoreModule } from './object-store/object-store.module';
+import { ApplicationsModule } from './applications/applications.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AuditModule } from './audit/audit.module';
 import {
   loadEnvironment,
   requireEnv,
@@ -13,10 +22,7 @@ import {
   requireEnvList,
   requireEnvNumber,
 } from './config/load-env';
-import { AdminModule } from './admin/admin.module';
-import { ObjectStoreModule } from './object-store/object-store.module';
-import { ApplicationsModule } from './applications/applications.module';
-import { NotificationsModule } from './notifications/notifications.module';
+import { cacheModuleOptionsFromEnv } from './config/cache.config';
 
 loadEnvironment();
 
@@ -43,26 +49,42 @@ function typeOrmOptionsFromEnv(): TypeOrmModuleOptions {
       // Vars already loaded by loadEnvironment() from `.env` → `.env.local`
       ignoreEnvFile: true,
     }),
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      // Optional — set CACHE_TTL_MS / CACHE_MAX in `.env` to override Nest defaults.
-      ...(process.env.CACHE_TTL_MS?.trim()
-        ? { ttl: requireEnvNumber('CACHE_TTL_MS') }
-        : {}),
-      ...(process.env.CACHE_MAX?.trim()
-        ? { max: requireEnvNumber('CACHE_MAX') }
-        : {}),
+      useFactory: () => cacheModuleOptionsFromEnv(),
     }),
-    TypeOrmModule.forRoot(typeOrmOptionsFromEnv()),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_MAX || '300', 10),
+      },
+      {
+        name: 'auth',
+        ttl: 60_000,
+        limit: 10,
+      },
+    ]),
+    TypeOrmModule.forRootAsync({
+      useFactory: () => typeOrmOptionsFromEnv(),
+      async dataSourceFactory(options) {
+        if (!options) {
+          throw new Error('Invalid TypeORM options');
+        }
+        return addTransactionalDataSource(new DataSource(options));
+      },
+    }),
     AdminModule,
     ObjectStoreModule,
     ApplicationsModule,
     NotificationsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],
 })
 export class AppModule {}

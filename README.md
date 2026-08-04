@@ -9,17 +9,18 @@ NestJS API for CDRMS. Env loading:
 
 - Node.js 20+
 - MySQL
-- Optional: Redis, MinIO
+- Optional: Redis (`REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD`), MinIO
 
 ## Setup
 
 ```bash
 npm install
 # .env already has NODE_ENV=local
-# edit .env.local as needed (DB_*, CACHE_*, APP_PORT, …)
+# edit .env.local as needed (DB_*, REDIS_*, APP_PORT, …)
 npm run start:dev
 ```
 
+When `REDIS_HOST` is set, Nest CacheModule uses Redis (Keonics-style) for token blacklist and other cache keys. Without it, cache falls back to in-memory.
 API base: `http://localhost:3710/api`  
 Health: `http://localhost:3710/api/health`
 

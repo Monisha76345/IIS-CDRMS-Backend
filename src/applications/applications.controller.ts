@@ -13,19 +13,28 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
 import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
 import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../admin/auth/guards/permissions.guard';
+import { Permissions } from '../admin/auth/decorators/permissions.decorator';
 import {
   CurrentUser,
   type JwtRequestUser,
 } from '../admin/common/decorators/current-user.decorator';
 import { ParseAnyUuidPipe } from '../admin/common/pipes/parse-any-uuid.pipe';
+import { UserType } from '../admin/users/enums/user-types.enum';
 
 @Controller('applications')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
-  /** ZC zone + engineers in that zone for the create form. */
+  /** Assigned zone for the logged-in officer (ZC / Engineer / CAO post mapping). */
   @Get('meta/my-zone')
+  @Permissions(
+    UserType.ZONAL_COMMISSIONER,
+    UserType.ENGINEER,
+    UserType.CAO,
+    UserType.SUPER_ADMIN,
+  )
   myZone(
     @CurrentUser() user: JwtRequestUser,
     @Query('zoneId') zoneId?: string,
@@ -41,11 +50,13 @@ export class ApplicationsController {
   }
 
   @Get('meta/cao-counts')
+  @Permissions(UserType.CAO, UserType.SUPER_ADMIN)
   caoCounts(@CurrentUser() user: JwtRequestUser) {
     return this.applicationsService.caoCounts(user.sub);
   }
 
   @Get('meta/task-counts')
+  @Permissions(UserType.ENGINEER, UserType.CAO, UserType.SUPER_ADMIN)
   taskCounts(
     @CurrentUser() user: JwtRequestUser,
     @Query('as') asRole?: 'engineer' | 'cao',
@@ -61,11 +72,18 @@ export class ApplicationsController {
   }
 
   @Get('engineers')
+  @Permissions(UserType.ZONAL_COMMISSIONER, UserType.SUPER_ADMIN)
   engineersByZone(@Query('zoneId') zoneId: string) {
     return this.applicationsService.findEngineersByZone(Number(zoneId));
   }
 
   @Get()
+  @Permissions(
+    UserType.ZONAL_COMMISSIONER,
+    UserType.ENGINEER,
+    UserType.CAO,
+    UserType.SUPER_ADMIN,
+  )
   list(
     @CurrentUser() user: JwtRequestUser,
     @Query('as') asRole?: 'zc' | 'engineer' | 'cao',
@@ -88,6 +106,12 @@ export class ApplicationsController {
   }
 
   @Get(':id')
+  @Permissions(
+    UserType.ZONAL_COMMISSIONER,
+    UserType.ENGINEER,
+    UserType.CAO,
+    UserType.SUPER_ADMIN,
+  )
   findOne(
     @Param('id', ParseAnyUuidPipe) id: string,
     @CurrentUser() user: JwtRequestUser,
@@ -100,6 +124,7 @@ export class ApplicationsController {
   }
 
   @Post()
+  @Permissions(UserType.ZONAL_COMMISSIONER, UserType.SUPER_ADMIN)
   create(
     @CurrentUser() user: JwtRequestUser,
     @Body() dto: CreateApplicationDto,
@@ -108,6 +133,7 @@ export class ApplicationsController {
   }
 
   @Patch(':id/start')
+  @Permissions(UserType.ENGINEER, UserType.SUPER_ADMIN)
   start(
     @Param('id', ParseAnyUuidPipe) id: string,
     @CurrentUser() user: JwtRequestUser,
@@ -117,6 +143,7 @@ export class ApplicationsController {
 
   /** Save partial engineer capture (each step / schedule edit) without CAO submit. */
   @Patch(':id/draft')
+  @Permissions(UserType.ENGINEER, UserType.SUPER_ADMIN)
   saveDraft(
     @Param('id', ParseAnyUuidPipe) id: string,
     @CurrentUser() user: JwtRequestUser,
@@ -126,6 +153,7 @@ export class ApplicationsController {
   }
 
   @Post(':id/submit')
+  @Permissions(UserType.ENGINEER, UserType.SUPER_ADMIN)
   submit(
     @Param('id', ParseAnyUuidPipe) id: string,
     @CurrentUser() user: JwtRequestUser,

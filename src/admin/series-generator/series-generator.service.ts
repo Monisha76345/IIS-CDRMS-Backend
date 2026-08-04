@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Transactional } from 'typeorm-transactional';
 import { SeriesGenerator } from './entities/series-generator.entity';
 
 @Injectable()
@@ -33,6 +34,7 @@ export class SeriesGeneratorService {
     await this.repository.save(record);
   }
 
+  @Transactional()
   async generateAndSavePrefix(prefix: string, paddingLength = 5): Promise<string> {
     let record = await this.repository.findOne({ where: { prefix } });
     let nextNum = 1;
@@ -48,6 +50,7 @@ export class SeriesGeneratorService {
     return `${prefix}${paddedValue}`;
   }
 
+  @Transactional()
   async getNextValue(prefix: string): Promise<number> {
     let record = await this.repository.findOne({ where: { prefix } });
     let nextNum = 1;

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Transactional } from 'typeorm-transactional';
 import { Application } from './entities/application.entity';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
@@ -206,6 +207,7 @@ export class ApplicationsService {
     });
   }
 
+  @Transactional()
   async create(zcUserId: string, dto: CreateApplicationDto): Promise<Application> {
     const zc = await this.resolveUserZone(zcUserId);
 
@@ -635,6 +637,7 @@ export class ApplicationsService {
     return this.applicationRepo.save(app);
   }
 
+  @Transactional()
   async submitEngineer(
     id: string,
     engineerUserId: string,

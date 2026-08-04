@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtOrTenantAuthGuard } from './guards/jwt-or-tenant-auth.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { CachingUtil } from '../common/utils/caching.util';
 
 @Global()
 @Module({
@@ -26,8 +28,21 @@ import { JwtOrTenantAuthGuard } from './guards/jwt-or-tenant-auth.guard';
       },
     }),
   ],
-  providers: [AuthService, JwtAuthGuard, JwtOrTenantAuthGuard],
+  providers: [
+    AuthService,
+    JwtAuthGuard,
+    JwtOrTenantAuthGuard,
+    PermissionsGuard,
+    CachingUtil,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule, JwtAuthGuard, JwtOrTenantAuthGuard],
+  exports: [
+    AuthService,
+    JwtModule,
+    JwtAuthGuard,
+    JwtOrTenantAuthGuard,
+    PermissionsGuard,
+    CachingUtil,
+  ],
 })
 export class AuthModule {}

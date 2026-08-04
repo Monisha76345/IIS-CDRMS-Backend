@@ -1,15 +1,13 @@
 import {
   CanActivate,
   ExecutionContext,
-  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Cache } from 'cache-manager';
 import type { Request } from 'express';
+import { CachingUtil } from '../../common/utils/caching.util';
 
 /**
  * Accepts either officer `access_token` or tenant `tenant_access_token`.
@@ -20,7 +18,7 @@ export class JwtOrTenantAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cachingUtil: CachingUtil,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -36,7 +34,9 @@ export class JwtOrTenantAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication token missing');
     }
 
-    const blacklisted = await this.cacheManager.get(`token:blacklist:${token}`);
+    const blacklisted = await this.cachingUtil.getCache(
+      `token:blacklist:${token}`,
+    );
     if (blacklisted) {
       throw new UnauthorizedException('Token has been revoked');
     }

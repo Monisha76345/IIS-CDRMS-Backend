@@ -12,6 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { MastersService } from './masters.service';
 import { MasterStatus } from './enums/master-status.enum';
 import { AttributeMasterType } from './enums/attribute-master-type.enum';
@@ -24,9 +26,11 @@ import {
   UpsertVillageDto,
   UpdateMasterStatusDto,
 } from './dto/masters.dto';
+import { UserType } from '../users/enums/user-types.enum';
 
 @Controller('masters')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions(UserType.SUPER_ADMIN)
 export class MastersController {
   constructor(private readonly mastersService: MastersService) {}
 

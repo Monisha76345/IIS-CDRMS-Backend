@@ -15,12 +15,16 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ParseAnyUuidPipe } from '../common/pipes/parse-any-uuid.pipe';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { PersonStatus } from './enums/assignment-status';
+import { UserType } from './enums/user-types.enum';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions(UserType.SUPER_ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

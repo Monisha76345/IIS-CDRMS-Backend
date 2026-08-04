@@ -88,7 +88,11 @@ export class AuthService {
     await this.usersService.touchLastLoggedIn(user.id);
 
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshExpiresIn =
+      process.env.JWT_REFRESH_EXPIRES_IN?.trim() || '7d';
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: refreshExpiresIn as `${number}${'s' | 'm' | 'h' | 'd'}`,
+    });
 
     return {
       user: enriched,

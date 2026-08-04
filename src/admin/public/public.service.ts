@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MastersService } from '../masters/masters.service';
 import { AttributeMasterType } from '../masters/enums/attribute-master-type.enum';
 import { MasterStatus } from '../masters/enums/master-status.enum';

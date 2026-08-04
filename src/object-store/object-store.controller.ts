@@ -18,44 +18,28 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
-import * as path from 'path';
 import { Readable } from 'stream';
 import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../admin/auth/guards/permissions.guard';
+import { Permissions } from '../admin/auth/decorators/permissions.decorator';
+import { UserType } from '../admin/users/enums/user-types.enum';
+import { assertSafeUpload } from '../admin/common/utils/file-validation.util';
 import { DocumentQueryDto, UploadDocumentDto } from './dto/upload-document.dto';
 import { BufferedFile } from './interfaces/buffered-file.interface';
 import { DocumentUploaderService } from './services/document-uploader.service';
 
-const FORBIDDEN_EXTENSIONS = [
-  '.js',
-  '.mjs',
-  '.cjs',
-  '.exe',
-  '.sh',
-  '.bat',
-  '.cmd',
-  '.html',
-  '.htm',
-  '.xhtml',
-  '.php',
-  '.asp',
-  '.aspx',
-];
-
 @Controller('object-store')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Permissions(
+  UserType.SUPER_ADMIN,
+  UserType.CAO,
+  UserType.ZONAL_COMMISSIONER,
+  UserType.ENGINEER,
+)
 export class ObjectStoreController {
   constructor(
     private readonly documentUploaderService: DocumentUploaderService,
   ) {}
-
-  private assertSafeUpload(file: Express.Multer.File) {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (FORBIDDEN_EXTENSIONS.includes(ext)) {
-      throw new BadRequestException(
-        'Security violation: Dangerous file extension uploaded.',
-      );
-    }
-  }
 
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
@@ -69,10 +53,7 @@ export class ObjectStoreController {
     @UploadedFile() file: Express.Multer.File,
     @Query() query: UploadDocumentDto,
   ) {
-    if (!file) {
-      throw new BadRequestException('File is required');
-    }
-    this.assertSafeUpload(file);
+    assertSafeUpload(file, { kind: 'document', maxSizeBytes: 25 * 1024 * 1024 });
 
     const bufferedFile: BufferedFile = {
       fieldname: file.fieldname,
