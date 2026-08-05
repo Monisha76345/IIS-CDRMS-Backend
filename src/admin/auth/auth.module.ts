@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtOrTenantAuthGuard } from './guards/jwt-or-tenant-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { CachingUtil } from '../common/utils/caching.util';
 
 @Global()
@@ -33,6 +34,7 @@ import { CachingUtil } from '../common/utils/caching.util';
     JwtAuthGuard,
     JwtOrTenantAuthGuard,
     PermissionsGuard,
+    RolesGuard,
     CachingUtil,
   ],
   controllers: [AuthController],
@@ -42,6 +44,7 @@ import { CachingUtil } from '../common/utils/caching.util';
     JwtAuthGuard,
     JwtOrTenantAuthGuard,
     PermissionsGuard,
+    RolesGuard,
     CachingUtil,
   ],
 })

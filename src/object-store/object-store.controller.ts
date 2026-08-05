@@ -20,9 +20,8 @@ import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { Readable } from 'stream';
 import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../admin/auth/guards/permissions.guard';
 import { Permissions } from '../admin/auth/decorators/permissions.decorator';
-import { UserType } from '../admin/users/enums/user-types.enum';
+import { PermissionsGuard } from '../admin/auth/guards/permissions.guard';
 import {
   assertSafeUpload,
   detectUploadKind,
@@ -36,18 +35,13 @@ const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 @Controller('object-store')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Permissions(
-  UserType.SUPER_ADMIN,
-  UserType.CAO,
-  UserType.ZONAL_COMMISSIONER,
-  UserType.ENGINEER,
-)
 export class ObjectStoreController {
   constructor(
     private readonly documentUploaderService: DocumentUploaderService,
   ) {}
 
   @Post('upload')
+  @Permissions('OBJECT_STORE:ADD')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -81,6 +75,7 @@ export class ObjectStoreController {
 
   /** Return existing uploaded URL for a ref without touching MinIO. */
   @Get('by-ref')
+  @Permissions('OBJECT_STORE:VIEW')
   async getByRef(@Query('refId') refId: string) {
     if (!refId?.trim()) throw new BadRequestException('refId required');
     const docs = await this.documentUploaderService.findByRefId(refId.trim());
@@ -99,6 +94,7 @@ export class ObjectStoreController {
 
   /** Stream uploaded file bytes by refId (for PDF export / mobile preview). */
   @Get('view-by-ref')
+  @Permissions('OBJECT_STORE:VIEW')
   async viewByRef(@Query('refId') refId: string, @Res() res: Response) {
     if (!refId?.trim()) throw new BadRequestException('refId required');
     const docs = await this.documentUploaderService.findByRefId(refId.trim());
@@ -120,6 +116,7 @@ export class ObjectStoreController {
 
   /** Proxy OSM static map server-side (avoids browser CORS on PDF export). */
   @Get('map-snapshot')
+  @Permissions('OBJECT_STORE:VIEW')
   async mapSnapshot(
     @Query('lat') latRaw: string,
     @Query('lng') lngRaw: string,
@@ -160,6 +157,7 @@ export class ObjectStoreController {
   }
 
   @Get('documents')
+  @Permissions('OBJECT_STORE:VIEW')
   async listDocuments(@Query() query: DocumentQueryDto) {
     if (!query.entityType || query.entityId == null) {
       return this.documentUploaderService.listRecent();
@@ -178,11 +176,13 @@ export class ObjectStoreController {
   }
 
   @Get('documents/:id')
+  @Permissions('OBJECT_STORE:VIEW')
   async getDocument(@Param('id', ParseIntPipe) id: number) {
     return this.documentUploaderService.findById(id);
   }
 
   @Get('download/:id')
+  @Permissions('OBJECT_STORE:VIEW')
   async downloadById(
     @Param('id', ParseIntPipe) id: number,
     @Res() res: Response,
@@ -208,6 +208,7 @@ export class ObjectStoreController {
   }
 
   @Get('view-by-url')
+  @Permissions('OBJECT_STORE:VIEW')
   async viewByUrl(@Query('url') url: string, @Res() res: Response) {
     if (!url) throw new BadRequestException('URL required');
     const doc = await this.documentUploaderService.findByUrl(url);
@@ -231,6 +232,7 @@ export class ObjectStoreController {
   }
 
   @Get('download-by-url')
+  @Permissions('OBJECT_STORE:VIEW')
   async downloadByUrl(@Query('url') url: string, @Res() res: Response) {
     if (!url) throw new BadRequestException('URL required');
     const doc = await this.documentUploaderService.findByUrl(url);
@@ -247,16 +249,19 @@ export class ObjectStoreController {
   }
 
   @Delete('by-url')
+  @Permissions('OBJECT_STORE:DELETE')
   async deleteByUrl(@Query('url') url: string) {
     return this.documentUploaderService.deleteByUrl(url);
   }
 
   @Delete('by-ref')
+  @Permissions('OBJECT_STORE:DELETE')
   async deleteByRef(@Query('refId') refId: string) {
     return this.documentUploaderService.deleteByRef(refId);
   }
 
   @Delete('documents/:id')
+  @Permissions('OBJECT_STORE:DELETE')
   async deleteDocument(@Param('id', ParseIntPipe) id: number) {
     return this.documentUploaderService.deleteDoc(id);
   }

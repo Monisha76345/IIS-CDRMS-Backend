@@ -1,7 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const PERMISSIONS_KEY = 'permissions';
-
-/** Route permission / role codes (e.g. `super_admin`, `engineer`). */
+/** CAS-style permission codes, e.g. `USER:VIEW`, `APPLICATION:ADD`. */
 export const Permissions = (...permissions: string[]) =>
-  SetMetadata(PERMISSIONS_KEY, permissions);
+  SetMetadata('permissions', permissions);

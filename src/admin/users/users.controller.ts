@@ -15,20 +15,19 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ParseAnyUuidPipe } from '../common/pipes/parse-any-uuid.pipe';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { PersonStatus } from './enums/assignment-status';
-import { UserType } from './enums/user-types.enum';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Permissions(UserType.SUPER_ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @Permissions('USER:VIEW')
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -40,6 +39,7 @@ export class UsersController {
   }
 
   @Get('mappings')
+  @Permissions('USER:VIEW')
   async findAllMappings(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -53,11 +53,13 @@ export class UsersController {
   }
 
   @Get('mappings/unmapped-persons')
+  @Permissions('USER:VIEW')
   async findUnmappedPersons() {
     return this.usersService.findUnmappedPersons();
   }
 
   @Get('mappings/post/:postId')
+  @Permissions('USER:VIEW')
   async findActiveMappingByPost(
     @Param('postId', ParseAnyUuidPipe) postId: string,
   ) {
@@ -65,6 +67,7 @@ export class UsersController {
   }
 
   @Get('posts')
+  @Permissions('USER:VIEW')
   async findAllPosts(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -78,6 +81,7 @@ export class UsersController {
   }
 
   @Get('people')
+  @Permissions('USER:VIEW')
   async findAllPeople(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -91,6 +95,7 @@ export class UsersController {
   }
 
   @Get('roles')
+  @Permissions('USER:VIEW')
   async findAllRoles(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -104,11 +109,13 @@ export class UsersController {
   }
 
   @Get('roles/:id')
+  @Permissions('USER:VIEW')
   async findRoleById(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findRoleById(id);
   }
 
   @Post('roles')
+  @Permissions('USER:ADD')
   async createRole(
     @Body()
     dto: {
@@ -120,6 +127,7 @@ export class UsersController {
   }
 
   @Patch('roles/:id')
+  @Permissions('USER:UPDATE')
   @UsePipes(
     new ValidationPipe({
       whitelist: true,
@@ -135,6 +143,7 @@ export class UsersController {
   }
 
   @Post('mappings')
+  @Permissions('USER:ADD')
   async mapPersonToPost(
     @Body()
     dto: {
@@ -153,6 +162,7 @@ export class UsersController {
   }
 
   @Post('mappings/post/:postId/person/:personId')
+  @Permissions('USER:ADD')
   async mapPersonToPostByPath(
     @Param('postId', ParseAnyUuidPipe) postId: string,
     @Param('personId', ParseAnyUuidPipe) personId: string,
@@ -171,11 +181,13 @@ export class UsersController {
   }
 
   @Put('mappings/:id/unmap')
+  @Permissions('USER:UPDATE')
   async unmapPersonFromPost(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.unmapPersonFromPost(id);
   }
 
   @Post('people')
+  @Permissions('USER:ADD')
   async createPerson(
     @Body()
     dto: {
@@ -199,6 +211,7 @@ export class UsersController {
   }
 
   @Post('posts')
+  @Permissions('USER:ADD')
   async createPost(
     @Body()
     dto: {
@@ -221,11 +234,13 @@ export class UsersController {
   }
 
   @Get('people/:id')
+  @Permissions('USER:VIEW')
   async findPersonById(@Param('id', ParseAnyUuidPipe) id: string) {
     return this.usersService.findPersonById(id);
   }
 
   @Put('people/:id')
+  @Permissions('USER:UPDATE')
   async updatePerson(
     @Param('id', ParseAnyUuidPipe) id: string,
     @Body() dto: any,
@@ -234,17 +249,20 @@ export class UsersController {
   }
 
   @Delete('people/:id')
+  @Permissions('USER:DELETE')
   async deletePerson(@Param('id', ParseAnyUuidPipe) id: string) {
     await this.usersService.deletePerson(id);
     return { success: true };
   }
 
   @Get('posts/:id')
+  @Permissions('USER:VIEW')
   async findPostById(@Param('id', ParseAnyUuidPipe) id: string) {
     return this.usersService.findPostById(id);
   }
 
   @Put('posts/:id')
+  @Permissions('USER:UPDATE')
   async updatePost(
     @Param('id', ParseAnyUuidPipe) id: string,
     @Body() dto: any,
@@ -253,12 +271,14 @@ export class UsersController {
   }
 
   @Delete('posts/:id')
+  @Permissions('USER:DELETE')
   async deletePost(@Param('id', ParseAnyUuidPipe) id: string) {
     await this.usersService.deletePost(id);
     return { success: true };
   }
 
   @Delete(':id')
+  @Permissions('USER:DELETE')
   async remove(
     @Param('id', ParseAnyUuidPipe) id: string,
   ): Promise<{ message: string }> {

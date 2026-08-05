@@ -12,8 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { MastersService } from './masters.service';
 import { MasterStatus } from './enums/master-status.enum';
 import { AttributeMasterType } from './enums/attribute-master-type.enum';
@@ -26,22 +26,22 @@ import {
   UpsertVillageDto,
   UpdateMasterStatusDto,
 } from './dto/masters.dto';
-import { UserType } from '../users/enums/user-types.enum';
 
 @Controller('masters')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Permissions(UserType.SUPER_ADMIN)
 export class MastersController {
   constructor(private readonly mastersService: MastersService) {}
 
   // ── CPMS geo masters (master_country / state / district / taluq / zones) ─
 
   @Get('countries')
+  @Permissions('MASTER:VIEW')
   countries() {
     return this.mastersService.findCountries();
   }
 
   @Get('states')
+  @Permissions('MASTER:VIEW')
   states(@Query('countryId') countryId?: string) {
     return this.mastersService.findStates(
       countryId ? parseInt(countryId, 10) : undefined,
@@ -49,21 +49,25 @@ export class MastersController {
   }
 
   @Get('taluqs')
+  @Permissions('MASTER:VIEW')
   taluqs(@Query('districtId', ParseIntPipe) districtId: number) {
     return this.mastersService.findMasterTaluqsByDistrict(districtId);
   }
 
   @Get('zones/active')
+  @Permissions('MASTER:VIEW')
   zones() {
     return this.mastersService.findActiveZones();
   }
 
   @Get('states/:stateId/districts')
+  @Permissions('MASTER:VIEW')
   districtsByState(@Param('stateId', ParseIntPipe) stateId: number) {
     return this.mastersService.findMasterDistrictsByState(stateId);
   }
 
   @Get('districts/:districtId/taluqs')
+  @Permissions('MASTER:VIEW')
   taluqsByDistrict(@Param('districtId', ParseIntPipe) districtId: number) {
     return this.mastersService.findMasterTaluqsByDistrict(districtId);
   }
@@ -71,6 +75,7 @@ export class MastersController {
   // ── Geo locations ──────────────────────────────────────────
 
   @Get('geo-locations')
+  @Permissions('MASTER:VIEW')
   findGeoLocations(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -88,11 +93,13 @@ export class MastersController {
   }
 
   @Post('geo-locations')
+  @Permissions('MASTER:ADD')
   createGeoLocation(@Body() dto: UpsertGeoLocationDto) {
     return this.mastersService.createGeoLocation(dto);
   }
 
   @Put('geo-locations/:id')
+  @Permissions('MASTER:UPDATE')
   updateGeoLocation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertGeoLocationDto,
@@ -101,6 +108,7 @@ export class MastersController {
   }
 
   @Patch('geo-locations/:id/status')
+  @Permissions('MASTER:UPDATE')
   patchGeoStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMasterStatusDto,
@@ -111,6 +119,7 @@ export class MastersController {
   // ── Attribute masters ──────────────────────────────────────
 
   @Get('attributes')
+  @Permissions('MASTER:VIEW')
   findAttributes(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -130,11 +139,13 @@ export class MastersController {
   }
 
   @Post('attributes')
+  @Permissions('MASTER:ADD')
   createAttribute(@Body() dto: UpsertAttributeMasterDto) {
     return this.mastersService.createAttributeMaster(dto);
   }
 
   @Put('attributes/:id')
+  @Permissions('MASTER:UPDATE')
   updateAttribute(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertAttributeMasterDto,
@@ -143,6 +154,7 @@ export class MastersController {
   }
 
   @Patch('attributes/:id/status')
+  @Permissions('MASTER:UPDATE')
   patchAttributeStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMasterStatusDto,
@@ -155,11 +167,13 @@ export class MastersController {
   // ── System parameters ──────────────────────────────────────
 
   @Get('system-parameters')
+  @Permissions('MASTER:VIEW')
   findSystemParameters() {
     return this.mastersService.findSystemParameters();
   }
 
   @Put('system-parameters/:key')
+  @Permissions('MASTER:UPDATE')
   updateSystemParameter(
     @Param('key') key: string,
     @Body() dto: UpsertSystemParameterDto,
@@ -171,6 +185,7 @@ export class MastersController {
 
   // CPMS: ?stateId=13 → master_district; else admin UUID districts list
   @Get('districts')
+  @Permissions('MASTER:VIEW')
   findDistricts(
     @Query('stateId') stateId?: string,
     @Query('page') page?: string,
@@ -194,11 +209,13 @@ export class MastersController {
   }
 
   @Post('districts')
+  @Permissions('MASTER:ADD')
   createDistrict(@Body() dto: UpsertDistrictDto) {
     return this.mastersService.createDistrict(dto);
   }
 
   @Put('districts/:id')
+  @Permissions('MASTER:UPDATE')
   updateDistrict(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertDistrictDto,
@@ -207,6 +224,7 @@ export class MastersController {
   }
 
   @Get('taluks')
+  @Permissions('MASTER:VIEW')
   findTaluks(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -226,11 +244,13 @@ export class MastersController {
   }
 
   @Post('taluks')
+  @Permissions('MASTER:ADD')
   createTaluk(@Body() dto: UpsertTalukDto) {
     return this.mastersService.createTaluk(dto);
   }
 
   @Put('taluks/:id')
+  @Permissions('MASTER:UPDATE')
   updateTaluk(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertTalukDto,
@@ -239,6 +259,7 @@ export class MastersController {
   }
 
   @Get('villages')
+  @Permissions('MASTER:VIEW')
   findVillages(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -260,11 +281,13 @@ export class MastersController {
   }
 
   @Post('villages')
+  @Permissions('MASTER:ADD')
   createVillage(@Body() dto: UpsertVillageDto) {
     return this.mastersService.createVillage(dto);
   }
 
   @Put('villages/:id')
+  @Permissions('MASTER:UPDATE')
   updateVillage(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertVillageDto,
