@@ -20,6 +20,7 @@ import { LoginDto } from './dto/login.dto';
 import { UpdateThemeDto } from './dto/update-theme.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CachingUtil } from '../common/utils/caching.util';
+import { jwtDurationToMs } from '../common/utils/jwt-duration';
 
 @Controller('auth')
 export class AuthController {
@@ -28,6 +29,36 @@ export class AuthController {
     private readonly cachingUtil: CachingUtil,
     private readonly jwtService: JwtService,
   ) {}
+
+  private get accessCookieMs() {
+    return jwtDurationToMs(process.env.JWT_EXPIRES_IN, 15 * 60 * 1000);
+  }
+
+  private get refreshCookieMs() {
+    return jwtDurationToMs(
+      process.env.JWT_REFRESH_EXPIRES_IN,
+      7 * 24 * 3600 * 1000,
+    );
+  }
+
+  private setAuthCookies(
+    response: Response,
+    accessToken: string,
+    refreshToken: string,
+  ) {
+    response.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: this.accessCookieMs,
+    });
+    response.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: this.refreshCookieMs,
+    });
+  }
 
   @Post('register')
   @Throttle({ auth: { limit: 5, ttl: 60_000 } })
@@ -48,19 +79,7 @@ export class AuthController {
     const { user, accessToken, refreshToken } =
       await this.authService.login(loginDto);
 
-    response.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-    });
-
-    response.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 3600 * 1000,
-    });
+    this.setAuthCookies(response, accessToken, refreshToken);
 
     return {
       user,
@@ -69,10 +88,36 @@ export class AuthController {
     };
   }
 
+  /** Keonics-style token rotation — used by web/mobile on 401 before forcing login. */
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { limit: 20, ttl: 60_000 } })
+  async refresh(
+    @Req() request: Request,
+    @Body() body: { refreshToken?: string },
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken =
+      (request.cookies?.['refresh_token'] as string | undefined) ||
+      body?.refreshToken;
+
+    const result = await this.authService.refresh(String(refreshToken || ''));
+    this.setAuthCookies(response, result.accessToken, result.refreshToken);
+    return result;
+  }
+
+  /** Idle session timeout minutes for clients (SoW session_timeout_minutes). */
+  @Get('session-config')
+  @HttpCode(HttpStatus.OK)
+  sessionConfig() {
+    return this.authService.getSessionConfig();
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
     @Req() request: Request,
+    @Body() body: { refreshToken?: string },
     @Res({ passthrough: true }) response: Response,
   ) {
     const cookieAccess = request.cookies?.['access_token'] as string | undefined;
@@ -86,20 +131,23 @@ export class AuthController {
         : undefined;
 
     const accessToken = cookieAccess || bearerToken;
-    const refreshToken = cookieRefresh;
+    // Mobile sends refresh in body; web uses httpOnly cookie.
+    const refreshToken =
+      cookieRefresh ||
+      (typeof body?.refreshToken === 'string' ? body.refreshToken.trim() : '');
 
     if (accessToken) {
       await this.cachingUtil.setCache(
         `token:blacklist:${accessToken}`,
         '1',
-        this.blacklistTtlMs(accessToken, 3600 * 1000),
+        this.blacklistTtlMs(accessToken, this.accessCookieMs),
       );
     }
     if (refreshToken) {
       await this.cachingUtil.setCache(
         `token:blacklist:${refreshToken}`,
         '1',
-        this.blacklistTtlMs(refreshToken, 7 * 24 * 3600 * 1000),
+        this.blacklistTtlMs(refreshToken, this.refreshCookieMs),
       );
     }
 

@@ -28,10 +28,12 @@ Health: `http://localhost:3710/api/health`
 
 | Module | Routes prefix | Notes |
 |--------|---------------|--------|
-| Auth | `/api/auth` | Cookie JWT (`access_token` / `refresh_token`) |
+| Auth | `/api/auth` | Cookie JWT (`access_token` / `refresh_token`); `POST /auth/refresh`, `GET /auth/session-config` |
 | Users | `/api/users` | Users / roles (CDRMS: `super_admin`, `cao`, `engineer`) |
 | Masters | `/api/masters` | Geo, attributes, statuses, system params, district/taluk/village |
 | Object store | `/api/object-store` | MinIO/S3 uploads + `object_store` metadata |
 | Series | (internal) | IDs like `CDRMS00001` |
 
 Login: `POST /api/auth/login` with `{ "email": "...", "password": "..." }` — sets httpOnly cookies.
+
+Session: set `SESSION_TIMEOUT_MINUTES` (default 30) for idle logout on web/mobile. Clients call `POST /auth/refresh` on 401 (shared promise) before forcing re-login.
