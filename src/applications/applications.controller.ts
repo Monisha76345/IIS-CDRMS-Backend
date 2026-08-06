@@ -43,6 +43,13 @@ export class ApplicationsController {
     );
   }
 
+  /** Site dimension dropdown — ZC create application (APPLICATION:ADD, not MASTER:ADD). */
+  @Post('meta/site-dimensions')
+  @Permissions('APPLICATION:ADD')
+  createSiteDimension(@Body('label') label: string) {
+    return this.applicationsService.createSiteDimension(String(label ?? ''));
+  }
+
   @Get('meta/cao-counts')
   @Permissions('APPLICATION:VIEW')
   caoCounts(@CurrentUser() user: JwtRequestUser) {

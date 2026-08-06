@@ -6,6 +6,7 @@ import { ApplicationsController } from './applications.controller';
 import { SeriesGeneratorModule } from '../admin/series-generator/series-generator.module';
 import { UsersModule } from '../admin/users/users.module';
 import { MasterZone } from '../admin/masters/entities/master-zone.entity';
+import { MastersModule } from '../admin/masters/masters.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     SeriesGeneratorModule,
     UsersModule,
     NotificationsModule,
+    MastersModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],

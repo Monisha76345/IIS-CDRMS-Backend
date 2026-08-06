@@ -17,6 +17,9 @@ import { SeriesGeneratorService } from '../admin/series-generator/series-generat
 import { UsersService } from '../admin/users/users.service';
 import { UserType } from '../admin/users/enums/user-types.enum';
 import { MasterZone } from '../admin/masters/entities/master-zone.entity';
+import { MastersService } from '../admin/masters/masters.service';
+import { AttributeMasterType } from '../admin/masters/enums/attribute-master-type.enum';
+import { MasterStatus } from '../admin/masters/enums/master-status.enum';
 import { User } from '../admin/users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import type { ApplicationHistoryItem } from './models/application-history-item.interface';
@@ -31,6 +34,7 @@ export class ApplicationsService {
     private readonly seriesGenerator: SeriesGeneratorService,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
+    private readonly mastersService: MastersService,
   ) {}
 
   private toIso(value?: Date | string | null): string {
@@ -208,6 +212,26 @@ export class ApplicationsService {
   }
 
   @Transactional()
+  /** ZC create-application flow — site dimension master (uses APPLICATION:ADD, not MASTER:ADD). */
+  async createSiteDimension(label: string) {
+    const normalized = label.trim().replace(/\s+/g, '');
+    if (!/^\d+(\*\d+)+$/.test(normalized)) {
+      throw new BadRequestException(
+        'Enter dimensions like 20*40 or 20*40*50*40',
+      );
+    }
+    const code = `DIM-${normalized.replace(/\*/g, 'x').replace(/[^\w]/g, '')}`.slice(
+      0,
+      50,
+    );
+    return this.mastersService.createAttributeMaster({
+      type: AttributeMasterType.SITE_DIMENSION,
+      label: normalized,
+      code,
+      status: MasterStatus.ACTIVE,
+    });
+  }
+
   async create(zcUserId: string, dto: CreateApplicationDto): Promise<Application> {
     const zc = await this.resolveUserZone(zcUserId);
 
