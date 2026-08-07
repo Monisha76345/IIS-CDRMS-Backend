@@ -5,7 +5,10 @@ import { TypeOrmModule, type TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { DataSource } from 'typeorm';
-import { addTransactionalDataSource } from 'typeorm-transactional';
+import {
+  addTransactionalDataSource,
+  deleteDataSourceByName,
+} from 'typeorm-transactional';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AllExceptionsFilter } from './admin/common/filters/all-exceptions.filter';
@@ -71,6 +74,8 @@ function typeOrmOptionsFromEnv(): TypeOrmModuleOptions {
         if (!options) {
           throw new Error('Invalid TypeORM options');
         }
+        // Nest retries on failed initialize; transactional registry must not stack.
+        deleteDataSourceByName('default');
         return addTransactionalDataSource(new DataSource(options));
       },
     }),
