@@ -93,8 +93,8 @@ export class Application extends BaseEntity {
   assignedCaoName: string | null;
 
   @Column({
-    type: 'varchar',
-    length: 50,
+    type: 'enum',
+    enum: ApplicationStatus,
     default: ApplicationStatus.ASSIGNED,
   })
   status: ApplicationStatus;

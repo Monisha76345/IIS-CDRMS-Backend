@@ -73,6 +73,7 @@ export class PublicService {
    */
   async applicationStatuses() {
     const labels: Record<ApplicationStatus, string> = {
+      [ApplicationStatus.DRAFT]: 'Draft',
       [ApplicationStatus.ASSIGNED]: 'Assigned',
       [ApplicationStatus.IN_PROGRESS]: 'In progress',
       [ApplicationStatus.SUBMITTED]: 'Submitted',

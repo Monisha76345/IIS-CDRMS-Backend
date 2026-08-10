@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { UpdateZcApplicationDto } from './dto/update-zc-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
 import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
 import { JwtAuthGuard } from '../admin/auth/guards/jwt-auth.guard';
@@ -121,6 +122,28 @@ export class ApplicationsController {
     @Body() dto: CreateApplicationDto,
   ) {
     return this.applicationsService.create(user.sub, dto);
+  }
+
+  /** Update a ZC draft application (draft status only). */
+  @Patch(':id/zc')
+  @Permissions('APPLICATION:UPDATE')
+  updateZcDraft(
+    @Param('id', ParseAnyUuidPipe) id: string,
+    @CurrentUser() user: JwtRequestUser,
+    @Body() dto: UpdateZcApplicationDto,
+  ) {
+    return this.applicationsService.updateZcDraft(user.sub, id, dto);
+  }
+
+  /** Submit a ZC draft to the assigned engineer (draft → assigned). */
+  @Post(':id/zc-submit')
+  @Permissions('APPLICATION:UPDATE')
+  submitZcDraft(
+    @Param('id', ParseAnyUuidPipe) id: string,
+    @CurrentUser() user: JwtRequestUser,
+    @Body() dto: UpdateZcApplicationDto,
+  ) {
+    return this.applicationsService.submitZcDraft(user.sub, id, dto);
   }
 
   @Patch(':id/start')

@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Transactional } from 'typeorm-transactional';
 import { Application } from './entities/application.entity';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { UpdateZcApplicationDto } from './dto/update-zc-application.dto';
 import { EngineerSubmitApplicationDto } from './dto/engineer-submit.dto';
 import { EngineerDraftApplicationDto } from './dto/engineer-draft.dto';
 import { ApplicationStatus, OccupancyStatus } from './enums/application.enums';
@@ -234,28 +235,16 @@ export class ApplicationsService {
 
   async create(zcUserId: string, dto: CreateApplicationDto): Promise<Application> {
     const zc = await this.resolveUserZone(zcUserId);
-
-    const engineers = await this.findEngineersByZone(zc.zoneId);
-    const assigned = engineers.find((e) => e.userId === dto.assignedEngineerUserId);
-    if (!assigned) {
-      throw new BadRequestException(
-        'Assigned engineer must belong to your zone and have an active post mapping',
-      );
-    }
+    const assigned = await this.resolveAssignedEngineer(
+      zc.zoneId,
+      dto.assignedEngineerUserId,
+    );
 
     const eOfficeNumber = dto.eOfficeNumber.trim();
     if (!eOfficeNumber) {
       throw new BadRequestException('E-office number is required');
     }
-    const duplicate = await this.applicationRepo.findOne({
-      where: { eOfficeNumber },
-      select: { id: true, applicationNumber: true },
-    });
-    if (duplicate) {
-      throw new ConflictException(
-        `E-office number "${eOfficeNumber}" is already used by ${duplicate.applicationNumber}`,
-      );
-    }
+    await this.assertUniqueEOfficeNumber(eOfficeNumber);
 
     const prefix = `ZC-${zc.zoneCode}-AUC-`;
     const applicationNumber = await this.seriesGenerator.generateAndSavePrefix(
@@ -265,39 +254,128 @@ export class ApplicationsService {
 
     const app = this.applicationRepo.create({
       applicationNumber,
-      eOfficeNumber,
-      siteNo: dto.siteNo.trim(),
-      addressArea: dto.addressArea.trim(),
-      addressBlock: dto.addressBlock.trim(),
-      addressPincode: dto.addressPincode.trim(),
-      siteDimensionType: dto.siteDimensionType,
-      siteDimension: dto.siteDimension.trim(),
-      siteDimensionComment: dto.siteDimensionComment?.trim() || null,
-      scheduleNorth: dto.scheduleNorth?.trim() || null,
-      scheduleSouth: dto.scheduleSouth?.trim() || null,
-      scheduleWest: dto.scheduleWest?.trim() || null,
-      scheduleEast: dto.scheduleEast?.trim() || null,
       zoneId: zc.zoneId,
       zoneCode: zc.zoneCode,
-      assignedEngineerUserId: dto.assignedEngineerUserId,
-      assignedEngineerName: assigned.name,
       createdByZcUserId: zcUserId,
       createdByZcName: zc.displayName,
-      status: ApplicationStatus.ASSIGNED,
+      status: dto.saveAsDraft
+        ? ApplicationStatus.DRAFT
+        : ApplicationStatus.ASSIGNED,
       createdBy: zcUserId,
     });
 
-    const now = new Date();
-    const engineerLogin =
-      assigned.personUniqueId ||
-      (
-        await this.usersService.resolveEngineerDisplayByIds([
-          dto.assignedEngineerUserId,
-        ])
-      ).get(dto.assignedEngineerUserId)?.loginId;
+    this.applyZcFormFields(app, dto, assigned);
 
     const saved = await this.applicationRepo.save(app);
     return saved;
+  }
+
+  async updateZcDraft(
+    zcUserId: string,
+    id: string,
+    dto: UpdateZcApplicationDto,
+  ): Promise<Application> {
+    const zc = await this.resolveUserZone(zcUserId);
+    const app = await this.findOne(id);
+    this.assertZcCanEditDraft(app, zc.zoneId);
+
+    const eOfficeNumber = dto.eOfficeNumber.trim();
+    if (!eOfficeNumber) {
+      throw new BadRequestException('E-office number is required');
+    }
+    await this.assertUniqueEOfficeNumber(eOfficeNumber, id);
+
+    const assigned = await this.resolveAssignedEngineer(
+      zc.zoneId,
+      dto.assignedEngineerUserId,
+    );
+    this.applyZcFormFields(app, dto, assigned);
+    app.updatedBy = zcUserId;
+    return this.applicationRepo.save(app);
+  }
+
+  async submitZcDraft(
+    zcUserId: string,
+    id: string,
+    dto: UpdateZcApplicationDto,
+  ): Promise<Application> {
+    const zc = await this.resolveUserZone(zcUserId);
+    const app = await this.findOne(id);
+    this.assertZcCanEditDraft(app, zc.zoneId);
+
+    const eOfficeNumber = dto.eOfficeNumber.trim();
+    if (!eOfficeNumber) {
+      throw new BadRequestException('E-office number is required');
+    }
+    await this.assertUniqueEOfficeNumber(eOfficeNumber, id);
+
+    const assigned = await this.resolveAssignedEngineer(
+      zc.zoneId,
+      dto.assignedEngineerUserId,
+    );
+    this.applyZcFormFields(app, dto, assigned);
+    app.status = ApplicationStatus.ASSIGNED;
+    app.updatedBy = zcUserId;
+    return this.applicationRepo.save(app);
+  }
+
+  private async resolveAssignedEngineer(
+    zoneId: number,
+    engineerUserId: string,
+  ): Promise<{ userId: string; name: string }> {
+    const engineers = await this.findEngineersByZone(zoneId);
+    const assigned = engineers.find((e) => e.userId === engineerUserId);
+    if (!assigned?.userId) {
+      throw new BadRequestException(
+        'Assigned engineer must belong to your zone and have an active post mapping',
+      );
+    }
+    return { userId: assigned.userId, name: assigned.name };
+  }
+
+  private async assertUniqueEOfficeNumber(
+    eOfficeNumber: string,
+    excludeId?: string,
+  ) {
+    const duplicate = await this.applicationRepo.findOne({
+      where: { eOfficeNumber },
+      select: { id: true, applicationNumber: true },
+    });
+    if (duplicate && duplicate.id !== excludeId) {
+      throw new ConflictException(
+        `E-office number "${eOfficeNumber}" is already used by ${duplicate.applicationNumber}`,
+      );
+    }
+  }
+
+  private assertZcCanEditDraft(app: Application, zoneId: number) {
+    if (app.zoneId !== zoneId) {
+      throw new ForbiddenException('Application is outside your zone');
+    }
+    if (app.status !== ApplicationStatus.DRAFT) {
+      throw new BadRequestException('Only draft applications can be edited');
+    }
+  }
+
+  private applyZcFormFields(
+    app: Application,
+    dto: CreateApplicationDto | UpdateZcApplicationDto,
+    assigned: { userId: string; name: string },
+  ) {
+    app.eOfficeNumber = dto.eOfficeNumber.trim();
+    app.siteNo = dto.siteNo.trim();
+    app.addressArea = dto.addressArea.trim();
+    app.addressBlock = dto.addressBlock.trim();
+    app.addressPincode = dto.addressPincode.trim();
+    app.siteDimensionType = dto.siteDimensionType;
+    app.siteDimension = dto.siteDimension.trim();
+    app.siteDimensionComment = dto.siteDimensionComment?.trim() || null;
+    app.scheduleNorth = dto.scheduleNorth?.trim() || null;
+    app.scheduleSouth = dto.scheduleSouth?.trim() || null;
+    app.scheduleWest = dto.scheduleWest?.trim() || null;
+    app.scheduleEast = dto.scheduleEast?.trim() || null;
+    app.assignedEngineerUserId = dto.assignedEngineerUserId;
+    app.assignedEngineerName = assigned.name;
   }
 
   async listMine(
@@ -410,6 +488,12 @@ export class ApplicationsService {
       }
     }
 
+    if (as === 'engineer' || roleStr.includes('engineer')) {
+      apps = apps.filter((a) => a.status !== ApplicationStatus.DRAFT);
+    } else if (as === 'cao' || roleStr.includes('cao')) {
+      apps = apps.filter((a) => a.status !== ApplicationStatus.DRAFT);
+    }
+
     return this.withEngineerLoginMany(apps);
   }
 
@@ -477,6 +561,13 @@ export class ApplicationsService {
     if (isAdmin) return this.withEngineerLogin(app);
 
     if (
+      app.status === ApplicationStatus.DRAFT &&
+      app.assignedEngineerUserId === userId
+    ) {
+      throw new ForbiddenException('Application has not been submitted by ZC yet');
+    }
+
+    if (
       app.createdByZcUserId === userId ||
       app.assignedEngineerUserId === userId ||
       app.assignedCaoUserId === userId
@@ -509,6 +600,9 @@ export class ApplicationsService {
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
     }
+    if (app.status === ApplicationStatus.DRAFT) {
+      throw new BadRequestException('Application has not been submitted by ZC yet');
+    }
     if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
     }
@@ -534,6 +628,9 @@ export class ApplicationsService {
     const app = await this.findOne(id);
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
+    }
+    if (app.status === ApplicationStatus.DRAFT) {
+      throw new BadRequestException('Application has not been submitted by ZC yet');
     }
     if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
@@ -670,6 +767,9 @@ export class ApplicationsService {
     const app = await this.findOne(id);
     if (app.assignedEngineerUserId !== engineerUserId) {
       throw new ForbiddenException('This task is not assigned to you');
+    }
+    if (app.status === ApplicationStatus.DRAFT) {
+      throw new BadRequestException('Application has not been submitted by ZC yet');
     }
     if (app.status === ApplicationStatus.SUBMITTED) {
       throw new BadRequestException('Application already submitted');
