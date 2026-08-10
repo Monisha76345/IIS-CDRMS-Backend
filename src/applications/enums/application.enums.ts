@@ -1,4 +1,6 @@
 export enum ApplicationStatus {
+  /** ZC saved but not yet assigned to engineer */
+  DRAFT = 'draft',
   ASSIGNED = 'assigned',
   IN_PROGRESS = 'in_progress',
   /** Engineer submitted */

@@ -1,7 +1,5 @@
 import {
-  IsBoolean,
   IsEnum,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -9,16 +7,9 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { SiteDimensionType } from '../enums/application.enums';
 
-export class CreateApplicationDto {
-  /** Super Admin may create on behalf of a zone (no zone on their own post). */
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  zoneId?: number;
-
+export class UpdateZcApplicationDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
@@ -39,7 +30,6 @@ export class CreateApplicationDto {
   @MaxLength(150)
   addressBlock: string;
 
-  /** Pincode — exactly 6 digits. */
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d{6}$/, {
@@ -50,7 +40,6 @@ export class CreateApplicationDto {
   @IsEnum(SiteDimensionType)
   siteDimensionType: SiteDimensionType;
 
-  /** Plot size e.g. 20*40 or 20*40*50*40 */
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
@@ -78,9 +67,4 @@ export class CreateApplicationDto {
 
   @IsUUID()
   assignedEngineerUserId: string;
-
-  /** When true, application stays in draft until ZC submits to engineer. */
-  @IsOptional()
-  @IsBoolean()
-  saveAsDraft?: boolean;
 }
