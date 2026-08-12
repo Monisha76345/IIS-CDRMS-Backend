@@ -491,7 +491,8 @@ export class ApplicationsService {
     if (as === 'engineer' || roleStr.includes('engineer')) {
       apps = apps.filter((a) => a.status !== ApplicationStatus.DRAFT);
     } else if (as === 'cao' || roleStr.includes('cao')) {
-      apps = apps.filter((a) => a.status !== ApplicationStatus.DRAFT);
+      // CAO only sees apps after site engineer submit — never assigned / in_progress.
+      apps = apps.filter((a) => a.status === ApplicationStatus.SUBMITTED);
     }
 
     return this.withEngineerLoginMany(apps);
