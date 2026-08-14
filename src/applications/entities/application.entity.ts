@@ -23,11 +23,24 @@ export class Application extends BaseEntity {
   @Column()
   siteNo: string;
 
-  @Column()
-  addressArea: string;
+  /** Street / plot address line 1 (replaces legacy addressArea). */
+  @Column({ type: 'varchar', length: 255 })
+  addressLine1: string;
+
+  /** Optional address line 2. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  addressLine2: string | null;
 
   @Column()
   addressBlock: string;
+
+  /** Frozen default from server config (e.g. Bangalore). */
+  @Column({ type: 'varchar', length: 100 })
+  addressCity: string;
+
+  /** Frozen default from server config (e.g. Karnataka). */
+  @Column({ type: 'varchar', length: 100 })
+  addressState: string;
 
   @Column({ length: 20 })
   addressPincode: string;

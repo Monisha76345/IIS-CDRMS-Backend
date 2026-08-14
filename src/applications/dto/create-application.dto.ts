@@ -31,13 +31,36 @@ export class CreateApplicationDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(150)
-  addressArea: string;
+  @MaxLength(255)
+  addressLine1: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  addressLine2?: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(150)
   addressBlock: string;
+
+  /**
+   * Optional — ignored on write. City is stamped from server defaults
+   * (APPLICATION_DEFAULT_CITY). Accepted so older clients do not fail validation.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  addressCity?: string;
+
+  /**
+   * Optional — ignored on write. State is stamped from server defaults
+   * (APPLICATION_DEFAULT_STATE).
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  addressState?: string;
 
   /** Pincode — exactly 6 digits. */
   @IsString()

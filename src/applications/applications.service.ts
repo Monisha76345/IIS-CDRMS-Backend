@@ -44,6 +44,20 @@ export class ApplicationsService {
     return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
 
+  /** City / state defaults — env-backed, not client-editable. */
+  getAddressDefaults() {
+    const city =
+      process.env.APPLICATION_DEFAULT_CITY?.trim() || 'Bangalore';
+    const state =
+      process.env.APPLICATION_DEFAULT_STATE?.trim() || 'Karnataka';
+    return {
+      city,
+      state,
+      cityLocked: true as const,
+      stateLocked: true as const,
+    };
+  }
+
   /**
    * Write engineer N/S/E/W into engineerDimensions (JSON) and keep dim* columns in sync.
    * Never touches ZC siteDimension.
@@ -362,10 +376,15 @@ export class ApplicationsService {
     dto: CreateApplicationDto | UpdateZcApplicationDto,
     assigned: { userId: string; name: string },
   ) {
+    const defaults = this.getAddressDefaults();
     app.eOfficeNumber = dto.eOfficeNumber.trim();
     app.siteNo = dto.siteNo.trim();
-    app.addressArea = dto.addressArea.trim();
+    app.addressLine1 = dto.addressLine1.trim();
+    app.addressLine2 = dto.addressLine2?.trim() || null;
     app.addressBlock = dto.addressBlock.trim();
+    // Always stamp from server — ignore any client-sent city/state.
+    app.addressCity = defaults.city;
+    app.addressState = defaults.state;
     app.addressPincode = dto.addressPincode.trim();
     app.siteDimensionType = dto.siteDimensionType;
     app.siteDimension = dto.siteDimension.trim();
@@ -399,8 +418,11 @@ export class ApplicationsService {
       applicationNumber: true,
       eOfficeNumber: true,
       siteNo: true,
-      addressArea: true,
+      addressLine1: true,
+      addressLine2: true,
       addressBlock: true,
+      addressCity: true,
+      addressState: true,
       addressPincode: true,
       siteDimensionType: true,
       siteDimension: true,

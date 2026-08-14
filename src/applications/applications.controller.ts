@@ -51,6 +51,13 @@ export class ApplicationsController {
     return this.applicationsService.createSiteDimension(String(label ?? ''));
   }
 
+  /** Frozen city/state defaults for the ZC create/edit form. */
+  @Get('meta/address-defaults')
+  @Permissions('APPLICATION:VIEW')
+  addressDefaults() {
+    return this.applicationsService.getAddressDefaults();
+  }
+
   @Get('meta/cao-counts')
   @Permissions('APPLICATION:VIEW')
   caoCounts(@CurrentUser() user: JwtRequestUser) {
