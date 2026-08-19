@@ -14,4 +14,4 @@ import { GeoLocation } from '../masters/entities/geo-location.entity';
   providers: [DashboardService],
   exports: [DashboardService],
 })
-export class DashboardModule {}
+export class DashboardModule { }

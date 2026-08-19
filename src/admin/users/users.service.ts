@@ -20,6 +20,7 @@ import { PostPersonMapping } from './entities/post-person-mapping.entity';
 import * as bcrypt from 'bcrypt';
 
 import { SeriesGeneratorService } from '../series-generator/series-generator.service';
+import { AuditService } from '../../audit/audit.service';
 import {
   normalizePagination,
   toPaginatedResult,
@@ -58,6 +59,7 @@ export class UsersService {
     @InjectRepository(PostPersonMapping)
     private readonly mappingRepository: Repository<PostPersonMapping>,
     private readonly seriesGeneratorService: SeriesGeneratorService,
+    private readonly auditService: AuditService,
   ) {}
 
   private rethrow(error: unknown, fallbackMessage: string): never {
@@ -363,6 +365,19 @@ export class UsersService {
         description: dto.description?.trim() ? dto.description.trim() : undefined,
       });
       const saved = await this.roleRepository.save(role);
+
+      void this.auditService.logActivity({
+        action: 'ROLE_CREATED',
+        title: `Created Role: ${saved.name}`,
+        entityType: 'ROLE',
+        entityId: String(saved.id),
+        meta: {
+          roleName: saved.name,
+          roleCode: saved.code,
+          summary: `Role ${saved.name}`,
+        },
+      });
+
       return saved;
     } catch (error) {
       this.rethrow(error, 'Failed to create role');
@@ -492,6 +507,24 @@ export class UsersService {
         relations: { post: { role: true }, person: true },
       });
       if (!full) throw new NotFoundException('Mapping created but could not be reloaded');
+
+      const personFullName = `${person.firstName || ''} ${person.lastName || ''}`.trim();
+      void this.auditService.logActivity({
+        action: 'PERSON_MAPPED',
+        title: `Mapped Officer: ${personFullName} (${person.personUniqueId}) → ${post.postName}`,
+        entityType: 'POST_PERSON_MAPPING',
+        entityId: String(savedMapping.id),
+        meta: {
+          personId: person.id,
+          personName: personFullName,
+          personUniqueId: person.personUniqueId,
+          postId: post.id,
+          postName: post.postName,
+          postCode: post.postId,
+          summary: `${personFullName} (${person.personUniqueId}) → ${post.postName} (${post.postId})`,
+        },
+      });
+
       return full;
     } catch (error) {
       this.rethrow(error, 'Failed to map person to post');
@@ -530,6 +563,22 @@ export class UsersService {
         await this.userRepository.save(user);
       }
     }
+
+    const unmappedPersonName = mapping.person
+      ? `${mapping.person.firstName || ''} ${mapping.person.lastName || ''}`.trim()
+      : 'Officer';
+    void this.auditService.logActivity({
+      action: 'PERSON_UNMAPPED',
+      title: `Unmapped Officer: ${unmappedPersonName} from ${mapping.post?.postName || 'Post'}`,
+      entityType: 'POST_PERSON_MAPPING',
+      entityId: String(saved.id),
+      meta: {
+        personName: unmappedPersonName,
+        postName: mapping.post?.postName,
+        postCode: mapping.post?.postId,
+        summary: `${unmappedPersonName} relieved from ${mapping.post?.postName || 'post'}`,
+      },
+    });
 
     return saved;
   }
@@ -692,7 +741,24 @@ export class UsersService {
       if (!payload.status) payload.status = PersonStatus.UNMAPPED;
 
       const person = this.personalDetailsRepository.create(payload);
-      return await this.personalDetailsRepository.save(person);
+      const savedPerson = await this.personalDetailsRepository.save(person);
+
+      const createdPersonName = `${savedPerson.firstName || ''} ${savedPerson.lastName || ''}`.trim();
+      void this.auditService.logActivity({
+        action: 'PERSON_CREATED',
+        title: `Created Officer Profile: ${createdPersonName} (${savedPerson.personUniqueId})`,
+        entityType: 'PERSONAL_DETAILS',
+        entityId: savedPerson.id,
+        meta: {
+          personName: createdPersonName,
+          personUniqueId: savedPerson.personUniqueId,
+          email: savedPerson.email,
+          mobileNumber: savedPerson.mobileNumber,
+          summary: `${createdPersonName} (${savedPerson.personUniqueId}) · ${savedPerson.email || ''}`,
+        },
+      });
+
+      return savedPerson;
     } catch (error) {
       this.rethrow(error, 'Failed to create person details');
     }
@@ -735,7 +801,24 @@ export class UsersService {
       }
 
       const post = this.postDetailsRepository.create(payload);
-      return await this.postDetailsRepository.save(post);
+      const savedPost = await this.postDetailsRepository.save(post);
+
+      void this.auditService.logActivity({
+        action: 'POST_CREATED',
+        title: `Created Post: ${savedPost.postName || 'New Post'} (${savedPost.postId})`,
+        entityType: 'POST_DETAILS',
+        entityId: savedPost.id,
+        meta: {
+          postId: savedPost.postId,
+          postName: savedPost.postName,
+          roleId: savedPost.roleId,
+          roleName: savedPost.roleName,
+          zoneCode: savedPost.zoneCode,
+          summary: `${savedPost.postName} (${savedPost.postId})${savedPost.zoneCode ? ` · Zone ${savedPost.zoneCode}` : ''}`,
+        },
+      });
+
+      return savedPost;
     } catch (error) {
       this.rethrow(error, 'Failed to create post details');
     }
