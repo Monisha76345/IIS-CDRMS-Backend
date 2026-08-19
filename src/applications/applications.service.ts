@@ -401,6 +401,7 @@ export class ApplicationsService {
     userId: string,
     as: 'zc' | 'engineer' | 'cao',
     queue: 'open' | 'all' = 'all',
+    options?: { search?: string; status?: string; zone?: string; page?: number; limit?: number },
   ): Promise<Application[]> {
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('User not found');
@@ -517,6 +518,36 @@ export class ApplicationsService {
       apps = apps.filter((a) => a.status === ApplicationStatus.SUBMITTED);
     }
 
+    if (options?.status && options.status !== 'all') {
+      const s = options.status.toLowerCase();
+      apps = apps.filter((a) => String(a.status || '').toLowerCase() === s);
+    }
+
+    if (options?.zone && options.zone !== 'all') {
+      const z = options.zone.toLowerCase();
+      apps = apps.filter((a) => String(a.zoneCode || '').toLowerCase() === z);
+    }
+
+    if (options?.search) {
+      const needle = options.search.toLowerCase();
+      apps = apps.filter(
+        (a) =>
+          a.applicationNumber?.toLowerCase().includes(needle) ||
+          a.siteNo?.toLowerCase().includes(needle) ||
+          a.assignedEngineerName?.toLowerCase().includes(needle) ||
+          a.addressLine1?.toLowerCase().includes(needle) ||
+          a.addressBlock?.toLowerCase().includes(needle) ||
+          a.addressCity?.toLowerCase().includes(needle) ||
+          a.zoneCode?.toLowerCase().includes(needle) ||
+          a.eOfficeNumber?.toLowerCase().includes(needle),
+      );
+    }
+
+    if (options?.page && options?.limit && options.page > 0 && options.limit > 0) {
+      const offset = (options.page - 1) * options.limit;
+      apps = apps.slice(offset, offset + options.limit);
+    }
+
     return this.withEngineerLoginMany(apps);
   }
 
@@ -539,37 +570,56 @@ export class ApplicationsService {
     return app;
   }
 
-  /** Attach engineer loginId + uploaded profile photo for UI (not DB columns). */
+  /** Attach officer loginId + uploaded profile photo for UI (not DB columns). */
   private async withEngineerLogin(
     app: Application,
   ): Promise<
     Application & {
       assignedEngineerLoginId: string | null;
       assignedEngineerProfilePhoto: string | null;
+      createdByZcLoginId: string | null;
+      createdByZcProfilePhoto: string | null;
+      assignedCaoLoginId: string | null;
+      assignedCaoProfilePhoto: string | null;
     }
   > {
-    const map = await this.usersService.resolveEngineerDisplayByIds([
+    const userIds = [
       app.assignedEngineerUserId,
-    ]);
-    const info = map.get(app.assignedEngineerUserId);
+      app.createdByZcUserId,
+      app.assignedCaoUserId,
+    ].filter(Boolean) as string[];
+    const map = await this.usersService.resolveEngineerDisplayByIds(userIds);
+    const engInfo = map.get(app.assignedEngineerUserId);
+    const zcInfo = map.get(app.createdByZcUserId);
+    const caoInfo = app.assignedCaoUserId ? map.get(app.assignedCaoUserId) : undefined;
     return Object.assign(app, {
-      assignedEngineerLoginId: info?.loginId ?? null,
-      assignedEngineerProfilePhoto: info?.profilePhoto ?? null,
-    }) as Application & {
-      assignedEngineerLoginId: string | null;
-      assignedEngineerProfilePhoto: string | null;
-    };
+      assignedEngineerLoginId: engInfo?.loginId ?? null,
+      assignedEngineerProfilePhoto: engInfo?.profilePhoto ?? null,
+      createdByZcLoginId: zcInfo?.loginId ?? null,
+      createdByZcProfilePhoto: zcInfo?.profilePhoto ?? null,
+      assignedCaoLoginId: caoInfo?.loginId ?? null,
+      assignedCaoProfilePhoto: caoInfo?.profilePhoto ?? null,
+    }) as any;
   }
 
   private async withEngineerLoginMany(apps: Application[]) {
-    const map = await this.usersService.resolveEngineerDisplayByIds(
-      apps.map((a) => a.assignedEngineerUserId),
-    );
+    const userIds = [
+      ...apps.map((a) => a.assignedEngineerUserId),
+      ...apps.map((a) => a.createdByZcUserId),
+      ...apps.map((a) => a.assignedCaoUserId),
+    ].filter(Boolean) as string[];
+    const map = await this.usersService.resolveEngineerDisplayByIds(userIds);
     return apps.map((app) => {
-      const info = map.get(app.assignedEngineerUserId);
+      const engInfo = map.get(app.assignedEngineerUserId);
+      const zcInfo = map.get(app.createdByZcUserId);
+      const caoInfo = app.assignedCaoUserId ? map.get(app.assignedCaoUserId) : undefined;
       return Object.assign(app, {
-        assignedEngineerLoginId: info?.loginId ?? null,
-        assignedEngineerProfilePhoto: info?.profilePhoto ?? null,
+        assignedEngineerLoginId: engInfo?.loginId ?? null,
+        assignedEngineerProfilePhoto: engInfo?.profilePhoto ?? null,
+        createdByZcLoginId: zcInfo?.loginId ?? null,
+        createdByZcProfilePhoto: zcInfo?.profilePhoto ?? null,
+        assignedCaoLoginId: caoInfo?.loginId ?? null,
+        assignedCaoProfilePhoto: caoInfo?.profilePhoto ?? null,
       });
     });
   }
@@ -899,28 +949,47 @@ export class ApplicationsService {
   async myZoneContext(userId: string, zoneId?: number) {
     if (zoneId != null && Number.isFinite(zoneId)) {
       const zone = await this.zoneRepo.findOne({ where: { id: zoneId } });
-      if (!zone || !zone.isActive) {
-        throw new BadRequestException('Selected master zone is invalid or inactive');
+      if (zone && zone.isActive) {
+        const zoneCode = (zone.zoneCode || '').trim().toUpperCase();
+        return {
+          zoneId: zone.id,
+          zoneCode,
+          zoneName: zone.zoneName ?? zoneCode,
+          engineers: await this.findEngineersByZone(zone.id),
+        };
       }
-      const zoneCode = (zone.zoneCode || '').trim().toUpperCase();
-      if (!zoneCode) {
-        throw new BadRequestException('Selected master zone has no zone code');
-      }
-      return {
-        zoneId: zone.id,
-        zoneCode,
-        zoneName: zone.zoneName ?? zoneCode,
-        engineers: await this.findEngineersByZone(zone.id),
-      };
     }
 
-    const ctx = await this.resolveUserZone(userId);
-    const zone = await this.zoneRepo.findOne({ where: { id: ctx.zoneId } });
-    return {
-      zoneId: ctx.zoneId,
-      zoneCode: ctx.zoneCode,
-      zoneName: zone?.zoneName ?? ctx.zoneCode,
-      engineers: await this.findEngineersByZone(ctx.zoneId),
-    };
+    try {
+      const ctx = await this.resolveUserZone(userId);
+      const zone = await this.zoneRepo.findOne({ where: { id: ctx.zoneId } });
+      return {
+        zoneId: ctx.zoneId,
+        zoneCode: ctx.zoneCode,
+        zoneName: zone?.zoneName ?? ctx.zoneCode,
+        engineers: await this.findEngineersByZone(ctx.zoneId),
+      };
+    } catch (err) {
+      // Graceful fallback for Super Admin or non-mapped users
+      const firstZone = await this.zoneRepo.findOne({
+        where: { isActive: 1 },
+        order: { id: 'ASC' },
+      });
+      if (firstZone) {
+        const zCode = (firstZone.zoneCode || 'CENTRAL').trim().toUpperCase();
+        return {
+          zoneId: firstZone.id,
+          zoneCode: zCode,
+          zoneName: firstZone.zoneName ?? zCode,
+          engineers: await this.findEngineersByZone(firstZone.id),
+        };
+      }
+      return {
+        zoneId: 0,
+        zoneCode: 'CENTRAL',
+        zoneName: 'Central Zone',
+        engineers: [],
+      };
+    }
   }
 }

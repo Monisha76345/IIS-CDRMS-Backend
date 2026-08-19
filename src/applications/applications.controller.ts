@@ -21,6 +21,7 @@ import {
   type JwtRequestUser,
 } from '../admin/common/decorators/current-user.decorator';
 import { ParseAnyUuidPipe } from '../admin/common/pipes/parse-any-uuid.pipe';
+import { SiteDimensionType } from './enums/application.enums';
 
 @Controller('applications')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -58,6 +59,13 @@ export class ApplicationsController {
     return this.applicationsService.getAddressDefaults();
   }
 
+  /** Site types enum list for ZC create application dropdown (Even, Odd). */
+  @Get('meta/site-types')
+  @Permissions('APPLICATION:VIEW')
+  siteTypes() {
+    return Object.values(SiteDimensionType);
+  }
+
   @Get('meta/cao-counts')
   @Permissions('APPLICATION:VIEW')
   caoCounts(@CurrentUser() user: JwtRequestUser) {
@@ -92,6 +100,13 @@ export class ApplicationsController {
     @CurrentUser() user: JwtRequestUser,
     @Query('as') asRole?: 'zc' | 'engineer' | 'cao',
     @Query('queue') queue?: 'open' | 'all',
+    @Query('search') search?: string,
+    @Query('q') q?: string,
+    @Query('status') status?: string,
+    @Query('zone') zone?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('perPage') perPage?: string,
   ) {
     const role = normalizeRole(user);
     let as: 'zc' | 'engineer' | 'cao' = 'zc';
@@ -106,6 +121,13 @@ export class ApplicationsController {
       user.sub,
       as,
       queue === 'open' ? 'open' : 'all',
+      {
+        search: (search || q)?.trim(),
+        status: status?.trim(),
+        zone: zone?.trim(),
+        page: page ? Number(page) : undefined,
+        limit: limit || perPage ? Number(limit || perPage) : undefined,
+      },
     );
   }
 
