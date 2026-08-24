@@ -92,4 +92,4 @@ function typeOrmOptionsFromEnv(): TypeOrmModuleOptions {
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }

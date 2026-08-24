@@ -63,26 +63,26 @@ async function bootstrap() {
       helmet({
         contentSecurityPolicy: cspEnabled
           ? {
-              directives: {
-                defaultSrc: ["'self'"],
-                styleSrc: ["'self'", "'unsafe-inline'"],
-                scriptSrc: ["'self'"],
-                imgSrc: ["'self'", 'data:', 'https:'],
-                connectSrc: ["'self'"],
-                fontSrc: ["'self'"],
-                objectSrc: ["'none'"],
-                mediaSrc: ["'self'"],
-                frameSrc: ["'none'"],
-              },
-            }
+            directives: {
+              defaultSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              scriptSrc: ["'self'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              connectSrc: ["'self'"],
+              fontSrc: ["'self'"],
+              objectSrc: ["'none'"],
+              mediaSrc: ["'self'"],
+              frameSrc: ["'none'"],
+            },
+          }
           : false,
         crossOriginEmbedderPolicy: false,
         hsts: hstsEnabled
           ? {
-              maxAge: hstsMaxAge,
-              includeSubDomains: true,
-              preload: true,
-            }
+            maxAge: hstsMaxAge,
+            includeSubDomains: true,
+            preload: true,
+          }
           : false,
         noSniff: true,
         xssFilter: true,
