@@ -94,9 +94,42 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  const allowLanWebOrigins =
+    environment === 'dev' || envName === 'local' || environment === 'local';
+
+  const isLanDevOrigin = (origin: string): boolean => {
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+      const host = url.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') return true;
+      if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+      if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+      if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      if (allowLanWebOrigins && isLanDevOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   app.use(cookieParser());
@@ -118,3 +151,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+

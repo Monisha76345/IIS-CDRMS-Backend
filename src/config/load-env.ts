@@ -19,7 +19,12 @@ export function loadEnvironment(): string {
     dotenv.config({ path: selectorPath });
   }
 
-  const raw = process.env.NODE_ENV || 'production';
+  const localPath = path.resolve(root, '.env.local');
+  if (fs.existsSync(localPath)) {
+    dotenv.config({ path: localPath });
+  }
+
+  const raw = process.env.NODE_ENV || (fs.existsSync(localPath) ? 'local' : 'production');
   const envName = String(raw).trim().toLowerCase();
   const fileKey =
     envName === 'development' ? 'dev' : envName === 'production' ? 'prod' : envName;
